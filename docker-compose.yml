@@ -1,9 +1,9 @@
 services:
-  dashboard:
+  dashboard-web:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bible-dashboard
+    container_name: dashboard-web
     ports:
       - "9086:5173"
     volumes:
@@ -19,7 +19,7 @@ services:
     environment:
       - NODE_ENV=development
       - VITE_ALIGNMENT_API_TARGET=${VITE_ALIGNMENT_API_TARGET:-http://localhost:8002}
-      - VITE_BIBLE_API_TARGET=${VITE_BIBLE_API_TARGET:-http://localhost:9085/api}
+      - VITE_BIBLE_API_TARGET=${VITE_BIBLE_API_TARGET:-http://localhost:8085/api}
     stdin_open: true
     tty: true
     networks:

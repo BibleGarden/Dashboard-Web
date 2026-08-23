@@ -26,7 +26,7 @@ export default defineConfig({
     allowedHosts: true,
     proxy: (() => {
       const alignmentApiTarget = process.env.VITE_ALIGNMENT_API_TARGET || 'http://localhost:8002'
-      const bibleApiTarget = process.env.VITE_BIBLE_API_TARGET || 'http://localhost:9085/api'
+      const bibleApiTarget = process.env.VITE_BIBLE_API_TARGET || 'http://localhost:8085/api'
       return {
         '/alignment-api': {
           target: alignmentApiTarget,
