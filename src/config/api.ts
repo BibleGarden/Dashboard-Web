@@ -1,18 +1,76 @@
 /**
  * API Configuration
- * 
- * API_KEY is used for public endpoints (reading data)
- * JWT tokens are used for administrative endpoints (modifying data)
+ *
+ * The API key is used for read endpoints of the admin API,
+ * JWT tokens are used for administrative endpoints (modifying data).
+ *
+ * There is NO fallback for a missing API key: an unset or empty
+ * VITE_ADMIN_API_KEY is a configuration error reported explicitly at startup
+ * (see src/main.ts). Working without the header would make a broken
+ * configuration look like a 403 coming from the server.
  */
 
+/** Name of the environment variable holding the admin API key. */
+const API_KEY_ENV_VAR = 'VITE_ADMIN_API_KEY'
+
 export const API_CONFIG = {
-  // API key for public Bible API endpoints
-  // Replace with your actual API key
-  API_KEY: import.meta.env.VITE_BIBLE_API_KEY || '',
-  
-  // Base URLs for APIs
-  BIBLE_API_URL: '/bible-api',
+  // Base URLs for APIs — dev-server proxy prefixes, see vite.config.js.
+  // ADMIN_API_URL points at the admin API (Dashboard-API); the public
+  // bible-api is not used by this dashboard at all.
+  ADMIN_API_URL: '/admin-api',
   ALIGNMENT_API_URL: '/alignment-api',
+}
+
+/** Thrown when the frontend is started without a usable API configuration. */
+export class ApiConfigError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ApiConfigError'
+  }
+}
+
+/**
+ * Single point of reading the admin API key out of the environment.
+ * Returns the trimmed key, or null if it is missing/empty.
+ */
+function readApiKey(): string | null {
+  const raw = import.meta.env.VITE_ADMIN_API_KEY
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  return trimmed === '' ? null : trimmed
+}
+
+function apiConfigError(): ApiConfigError {
+  return new ApiConfigError(
+    `${API_KEY_ENV_VAR} is not set (or is empty). ` +
+      'The dashboard cannot authenticate against the admin API without it. ' +
+      `Set ${API_KEY_ENV_VAR} in Dashboard-Web/.env for the dev container ` +
+      '(dashboard-web, port 9086) or in the environment of the ' +
+      'dashboard-web-prod container (root .env, port 9087), then restart the container.'
+  )
+}
+
+/**
+ * Validate the API configuration, throwing an ApiConfigError that names the
+ * offending variable. Called once at startup, before the app is mounted.
+ */
+export function assertApiConfigured(): void {
+  if (readApiKey() === null) {
+    throw apiConfigError()
+  }
+}
+
+/**
+ * Return the configured (trimmed) API key. Throws instead of returning an
+ * empty string, so no request is ever sent silently without the X-API-Key
+ * header.
+ */
+export function requireApiKey(): string {
+  const key = readApiKey()
+  if (key === null) {
+    throw apiConfigError()
+  }
+  return key
 }
 
 /**

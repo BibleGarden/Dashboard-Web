@@ -25,7 +25,7 @@ npm install
 
 # 2. Configuration
 cp .env.example .env
-# Specify VITE_BIBLE_API_KEY in .env
+# Specify VITE_ADMIN_API_KEY in .env
 
 # 3. Running
 npm run dev

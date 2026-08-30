@@ -249,7 +249,7 @@ import Toast from 'primevue/toast'
 import type { ExcerptResponse, ExcerptVerseModel, BookModel } from '../types/api'
 import { useTranslations, useBooks, type VoiceWithTranslation } from '../composables/useApi'
 import { useAudioPlayback } from '../composables/useAudioPlayback'
-import { bibleApiService } from '../services/api'
+import { adminApiService } from '../services/api'
 import { useToast } from 'primevue/usetoast'
 import { createAudioUrlWithAuth } from '../utils/audio'
 import BaseAudioPlayer from './BaseAudioPlayer.vue'
@@ -531,7 +531,7 @@ const applyCorrectionChanges = async () => {
       info: `Manual timing correction applied via Bible Inspect interface`
     }
 
-    await bibleApiService.createManualFix(fixData)
+    await adminApiService.createManualFix(fixData)
     
     // Update the verse in local data
     if (currentVerse.value) {
@@ -638,7 +638,7 @@ const loadExcerptData = async () => {
   excerptState.value.error = null
 
   try {
-    const response = await bibleApiService.getChapterWithAlignment({
+    const response = await adminApiService.getChapterWithAlignment({
       translation: voice.translation.code,
       book_number: selectedBookNumber.value!,
       chapter_number: selectedChapter.value!,

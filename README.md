@@ -10,7 +10,7 @@ npm install
 
 # Setup API key
 cp .env.example .env
-# Edit .env and specify VITE_BIBLE_API_KEY
+# Edit .env and specify VITE_ADMIN_API_KEY
 
 # Start dev server
 npm run dev
@@ -73,7 +73,7 @@ Two access levels:
 - **API key** — read data (languages, translations, audio)
 - **JWT token** — modify data (voices, anomalies)
 
-Setup: create `.env` and specify `VITE_BIBLE_API_KEY`
+Setup: create `.env` and specify `VITE_ADMIN_API_KEY`
 
 ## License
 

@@ -9,7 +9,7 @@
 
 2. **Specify API Key:**
    ```env
-   VITE_BIBLE_API_KEY=your_api_key_here
+   VITE_ADMIN_API_KEY=your_api_key_here
    ```
 
 3. **Start the application:**

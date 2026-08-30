@@ -37,7 +37,7 @@ Two levels: API key for reads, JWT for writes. See `docs/AUTH.md`.
 cd Dashboard-Web && docker compose up -d
 ```
 
-Dev container: `dashboard-web`, port **9086** (Vite dev server, hot reload via mounted volumes). Talks to the local Dashboard-API at `http://localhost:8085/api` (`VITE_BIBLE_API_TARGET`, proxied under `/bible-api`).
+Dev container: `dashboard-web`, port **9086** (Vite dev server, hot reload via mounted volumes). Talks to the local Dashboard-API at `http://localhost:8085/api` (`VITE_ADMIN_API_TARGET`, proxied under `/admin-api`). The public Bible-API is not used by this dashboard at all — everything goes to the admin API.
 
 Prod-config variant runs from the repo root, not here:
 
@@ -47,7 +47,11 @@ cd /root/cep && docker compose up -d dashboard-web-prod   # port 9087
 
 `dashboard-web-prod` points at `https://api.bible.garden/admin-api`.
 
-Env vars: copy `.env.example` → `.env` (`VITE_BIBLE_API_TARGET`, `VITE_BIBLE_API_KEY`, `VITE_ALIGNMENT_API_TARGET`).
+Env vars: copy `.env.example` → `.env` (`VITE_ADMIN_API_TARGET`, `VITE_ADMIN_API_KEY`, `VITE_ALIGNMENT_API_TARGET`).
+
+`VITE_ADMIN_API_KEY` has no fallback: if it is missing or empty, the app refuses to
+mount and renders a "Configuration error" page naming the variable
+(`src/config/api.ts` → `assertApiConfigured`, called from `src/main.ts`).
 
 ## Git
 

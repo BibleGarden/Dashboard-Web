@@ -120,7 +120,7 @@ import Column from 'primevue/column'
 import Button from 'primevue/button'
 import SelectButton from 'primevue/selectbutton'
 import Tag from 'primevue/tag'
-import { bibleApiService } from '../services/api'
+import { adminApiService } from '../services/api'
 import type { StatsSummaryResponse, RecentRequestRow } from '../types/api'
 
 const periodOptions = [
@@ -189,7 +189,7 @@ function formatTime(dt: string): string {
 async function fetchStats() {
     loading.value = true
     try {
-        summary.value = await bibleApiService.getStatsSummary(selectedDays.value)
+        summary.value = await adminApiService.getStatsSummary(selectedDays.value)
     } catch (e) {
         console.error('Failed to load stats summary', e)
     } finally {
@@ -200,7 +200,7 @@ async function fetchStats() {
 async function fetchRecent() {
     recentLoading.value = true
     try {
-        const res = await bibleApiService.getRecentRequests(100)
+        const res = await adminApiService.getRecentRequests(100)
         recentRequests.value = res.items
     } catch (e) {
         console.error('Failed to load recent requests', e)

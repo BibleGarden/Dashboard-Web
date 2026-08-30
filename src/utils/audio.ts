@@ -1,29 +1,23 @@
-import { API_CONFIG } from '../config/api'
+import { requireApiKey } from '../config/api'
 
 /**
  * Creates URL with API key for audio files
  * Since HTML Audio element doesn't support custom headers,
  * we add API key as query parameter
- * 
+ *
  * NOTE: This only works if API supports API key in query parameters
  */
 export function createAudioUrlWithAuth(url: string): string {
   if (!url) return url
-  
-  // If API key is not configured, return URL as is
-  if (!API_CONFIG.API_KEY) {
-    console.warn('API_KEY is not configured. Audio may not load.')
-    return url
-  }
-  
+
   // Check if this is an audio URL
   if (!url.includes('/audio/')) {
     return url
   }
-  
-  // Add API key as query parameter
+
+  // Add API key as query parameter (throws if not configured)
   const separator = url.includes('?') ? '&' : '?'
-  return `${url}${separator}api_key=${encodeURIComponent(API_CONFIG.API_KEY)}`
+  return `${url}${separator}api_key=${encodeURIComponent(requireApiKey())}`
 }
 
 /**
@@ -31,12 +25,12 @@ export function createAudioUrlWithAuth(url: string): string {
  */
 export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers)
-  
-  // Add API key for public endpoints
-  if (API_CONFIG.API_KEY && url.includes('/audio/')) {
-    headers.set('X-API-Key', API_CONFIG.API_KEY)
+
+  // Add API key for public endpoints (throws if not configured)
+  if (url.includes('/audio/')) {
+    headers.set('X-API-Key', requireApiKey())
   }
-  
+
   return fetch(url, {
     ...options,
     headers
@@ -54,11 +48,6 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
  * Use only if API doesn't support API key in query parameters
  */
 export async function createAuthenticatedAudioBlob(url: string): Promise<string> {
-  if (!API_CONFIG.API_KEY) {
-    console.warn('API_KEY is not configured. Returning original URL.')
-    return url
-  }
-  
   try {
     const response = await fetchWithAuth(url)
     

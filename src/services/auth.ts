@@ -70,7 +70,7 @@ class AuthService {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       const response = await axios.post<AuthResponse>(
-        '/bible-api/auth/login',
+        '/admin-api/auth/login',
         credentials,
         {
           headers: {

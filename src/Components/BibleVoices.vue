@@ -124,7 +124,7 @@ import { RefreshCw as RefreshIcon } from 'lucide-vue-next'
 import { useTranslations, useLanguages } from '../composables/useApi'
 import type { VoiceWithTranslation } from '../composables/useApi'
 import type { LanguageModel } from '../types/api'
-import { bibleApiService } from '../services/api'
+import { adminApiService } from '../services/api'
 import { useToast } from 'primevue/usetoast'
 
 const { state, voices, fetchTranslations, updateVoiceActive } = useTranslations()
@@ -227,7 +227,7 @@ const toggleVoiceActive = async (voice: VoiceWithTranslation): Promise<void> => 
 
     try {
         // Update voice active status via API
-        await bibleApiService.updateVoice(voice.code, { active: newActive })
+        await adminApiService.updateVoice(voice.code, { active: newActive })
 
         // Update the voice in original data to trigger reactivity
         updateVoiceActive(voice.code, newActive)

@@ -18,13 +18,23 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - VITE_ALIGNMENT_API_TARGET=${VITE_ALIGNMENT_API_TARGET:-http://localhost:8002}
-      - VITE_BIBLE_API_TARGET=${VITE_BIBLE_API_TARGET:-http://localhost:8085/api}
+      # No fallback defaults here on purpose — an unset/empty target must
+      # fail vite.config.js's startup check (requireEnv), not silently proxy
+      # to a hardcoded host. Set both in Dashboard-Web/.env.
+      - VITE_ALIGNMENT_API_TARGET=${VITE_ALIGNMENT_API_TARGET}
+      - VITE_ADMIN_API_TARGET=${VITE_ADMIN_API_TARGET}
     stdin_open: true
     tty: true
     networks:
       - dashboard-network
+      # Shared with dashboard-api (see Dashboard-API/docker-compose.yml), so
+      # the dev container can reach it as http://dashboard-api:8000/api
+      # instead of a host-machine hostname that may not resolve correctly
+      # from inside the container (e.g. IPv6 link-local addresses).
+      - mysql_default
 
 networks:
   dashboard-network:
     driver: bridge
+  mysql_default:
+    external: true

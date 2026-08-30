@@ -60,7 +60,7 @@ npm run format
 
 ## API Endpoints
 
-### Bible API (`/bible-api`)
+### Admin API (`/admin-api`)
 - Translations, languages, books
 - Chapters and excerpts with alignment
 - Audio files

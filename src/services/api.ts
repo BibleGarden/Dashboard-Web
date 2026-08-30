@@ -27,15 +27,15 @@ import type {
   RecentRequestsResponse
 } from '../types/api'
 import { authService } from './auth'
-import { API_CONFIG, isPublicEndpoint, isAdminEndpoint } from '../config/api'
+import { API_CONFIG, isPublicEndpoint, isAdminEndpoint, requireApiKey } from '../config/api'
 
-// Exported to allow creating multiple API instances (e.g., general and Bible alignment)
+// Exported to allow creating multiple API instances (e.g., admin API and alignment API)
 export class ApiService {
   private api: AxiosInstance
-  private isBibleApi: boolean
+  private isAdminApi: boolean
 
-  constructor(baseURL: string = '/alignment-api') {
-    this.isBibleApi = baseURL.includes('bible-api')
+  constructor(baseURL: string = API_CONFIG.ALIGNMENT_API_URL) {
+    this.isAdminApi = baseURL === API_CONFIG.ADMIN_API_URL
 
     this.api = axios.create({
       baseURL,
@@ -48,15 +48,13 @@ export class ApiService {
     // Request interceptor
     this.api.interceptors.request.use(
       (config) => {
-        // Add authorization headers only for Bible API
-        if (this.isBibleApi) {
+        // Add authorization headers only for the admin API
+        if (this.isAdminApi) {
           const url = config.url || ''
 
-          // Add API key for public endpoints
+          // Add API key for public endpoints (throws if not configured)
           if (isPublicEndpoint(url)) {
-            if (API_CONFIG.API_KEY) {
-              config.headers['X-API-Key'] = API_CONFIG.API_KEY
-            }
+            config.headers['X-API-Key'] = requireApiKey()
           }
 
           // Add JWT token for administrative endpoints
@@ -288,6 +286,6 @@ export class ApiService {
 }
 
 // Export singleton instances
-export const alignmentApiService = new ApiService('/alignment-api')
-export const bibleApiService = new ApiService('/bible-api')
+export const alignmentApiService = new ApiService(API_CONFIG.ALIGNMENT_API_URL)
+export const adminApiService = new ApiService(API_CONFIG.ADMIN_API_URL)
 export default alignmentApiService

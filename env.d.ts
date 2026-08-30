@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_BIBLE_API_KEY: string
+  // May be undefined at runtime when the container is started without it —
+  // validated explicitly in src/config/api.ts (assertApiConfigured).
+  readonly VITE_ADMIN_API_KEY?: string
 }
 
 interface ImportMeta {
