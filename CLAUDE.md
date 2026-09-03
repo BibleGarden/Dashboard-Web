@@ -55,4 +55,4 @@ mount and renders a "Configuration error" page naming the variable
 
 ## Git
 
-Local branch `master` tracks `origin/main`.
+Local branch `main` tracks `origin/main`.
