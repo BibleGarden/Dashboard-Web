@@ -1,17 +1,29 @@
 <template>
   <div class="w-full flex flex-col gap-4">
-    <div class="flex items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-surface-600 dark:text-surface-300">
         Reports about questions and scripture passages generated for Lampada users.
       </p>
-      <Button
-        label="Refresh"
-        icon="pi pi-refresh"
-        severity="secondary"
-        text
-        :loading="loading"
-        @click="refresh"
-      />
+      <div class="flex items-center gap-2">
+        <Select
+          v-model="selectedStatus"
+          :options="statusFilterOptions"
+          optionLabel="label"
+          optionValue="value"
+          class="w-60"
+          aria-label="Filter reports by status"
+          data-testid="content-report-status-filter"
+          @change="refresh"
+        />
+        <Button
+          label="Refresh"
+          icon="pi pi-refresh"
+          severity="secondary"
+          text
+          :loading="loading"
+          @click="refresh"
+        />
+      </div>
     </div>
 
     <Message v-if="error" severity="error" :closable="false">
@@ -26,7 +38,7 @@
         dataKey="id"
         stripedRows
         :loading="loading && reports.length === 0"
-        tableStyle="min-width: 62rem"
+        tableStyle="min-width: 76rem"
       >
         <Column field="created_at" header="Received" style="width: 12rem">
           <template #body="{ data }">
@@ -44,6 +56,23 @@
         <Column field="language" header="Language" style="width: 7rem">
           <template #body="{ data }">
             <span class="uppercase font-medium">{{ data.language }}</span>
+          </template>
+        </Column>
+        <Column field="status" header="Status" style="width: 13rem">
+          <template #body="{ data }">
+            <Select
+              :modelValue="data.status"
+              :options="statusOptions"
+              optionLabel="label"
+              optionValue="value"
+              size="small"
+              class="w-full"
+              :loading="updatingReportIds.has(data.id)"
+              :disabled="updatingReportIds.has(data.id)"
+              :aria-label="`Status for report ${data.id}`"
+              :data-testid="`content-report-status-${data.id}`"
+              @update:modelValue="updateStatus(data, $event)"
+            />
           </template>
         </Column>
         <Column field="content_text" header="Reported content">
@@ -70,7 +99,7 @@
         </Column>
         <template #empty>
           <div class="py-10 text-center text-surface-500 dark:text-surface-400">
-            No content reports have been received.
+            {{ emptyMessage }}
           </div>
         </template>
       </DataTable>
@@ -99,6 +128,10 @@
             :severity="selectedReport.content_type === 'question' ? 'info' : 'secondary'"
           />
           <Tag :value="selectedReport.language.toUpperCase()" severity="contrast" />
+          <Tag
+            :value="statusLabel(selectedReport.status)"
+            :severity="statusSeverity(selectedReport.status)"
+          />
           <span class="text-sm text-surface-500 self-center">{{
             formatTime(selectedReport.created_at)
           }}</span>
@@ -135,18 +168,33 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
 import Message from 'primevue/message'
+import Select from 'primevue/select'
 import Tag from 'primevue/tag'
 import { adminApiService } from '../services/api'
-import type { ContentReport } from '../types/api'
+import type { ContentReport, ContentReportStatus } from '../types/api'
 
 const PAGE_SIZE = 50
 
 const reports = ref<ContentReport[]>([])
 const selectedReport = ref<ContentReport | null>(null)
+const selectedStatus = ref<ContentReportStatus | null>(null)
 const loading = ref(false)
 const loadingMore = ref(false)
 const hasMore = ref(false)
 const error = ref<string | null>(null)
+const updatingReportIds = ref(new Set<number>())
+
+const statusOptions: Array<{ label: string; value: ContentReportStatus }> = [
+  { label: 'Unreviewed', value: 'unreviewed' },
+  { label: 'Not significant', value: 'not_significant' },
+  { label: 'Needs investigation', value: 'needs_investigation' },
+  { label: 'Action taken', value: 'action_taken' },
+]
+
+const statusFilterOptions: Array<{
+  label: string
+  value: ContentReportStatus | null
+}> = [{ label: 'All statuses', value: null }, ...statusOptions]
 
 const reportDialogVisible = computed({
   get: () => selectedReport.value !== null,
@@ -154,6 +202,12 @@ const reportDialogVisible = computed({
     if (!visible) selectedReport.value = null
   },
 })
+
+const emptyMessage = computed(() =>
+  selectedStatus.value === null
+    ? 'No content reports have been received.'
+    : 'No content reports match this status.',
+)
 
 function preview(text: string): string {
   return text.length <= 140 ? text : `${text.slice(0, 137)}…`
@@ -163,9 +217,23 @@ function typeLabel(type: ContentReport['content_type']): string {
   return type === 'question' ? 'Question' : 'Scripture'
 }
 
+function statusLabel(status: ContentReportStatus): string {
+  return statusOptions.find((option) => option.value === status)?.label ?? status
+}
+
+function statusSeverity(status: ContentReportStatus): 'secondary' | 'info' | 'warn' | 'success' {
+  const severities: Record<ContentReportStatus, 'secondary' | 'info' | 'warn' | 'success'> = {
+    unreviewed: 'secondary',
+    not_significant: 'info',
+    needs_investigation: 'warn',
+    action_taken: 'success',
+  }
+  return severities[status]
+}
+
 function formatTime(value: string): string {
   const normalized = value.includes('T') ? value : value.replace(' ', 'T')
-    const withZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(normalized) ? normalized : `${normalized}+03:00`
+  const withZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(normalized) ? normalized : `${normalized}+03:00`
   return new Date(withZone).toLocaleString('en-GB', {
     year: 'numeric',
     month: 'short',
@@ -179,7 +247,10 @@ async function refresh() {
   loading.value = true
   error.value = null
   try {
-    const response = await adminApiService.getContentReports({ limit: PAGE_SIZE })
+    const response = await adminApiService.getContentReports({
+      limit: PAGE_SIZE,
+      ...(selectedStatus.value === null ? {} : { status: selectedStatus.value }),
+    })
     reports.value = response.items
     hasMore.value = response.items.length === PAGE_SIZE
   } catch {
@@ -199,6 +270,7 @@ async function loadOlder() {
     const response = await adminApiService.getContentReports({
       limit: PAGE_SIZE,
       before_id: last.id,
+      ...(selectedStatus.value === null ? {} : { status: selectedStatus.value }),
     })
     reports.value.push(...response.items)
     hasMore.value = response.items.length === PAGE_SIZE
@@ -206,6 +278,25 @@ async function loadOlder() {
     error.value = 'Older content reports could not be loaded. Try again.'
   } finally {
     loadingMore.value = false
+  }
+}
+
+async function updateStatus(report: ContentReport, status: ContentReportStatus) {
+  if (status === report.status || updatingReportIds.value.has(report.id)) return
+
+  updatingReportIds.value.add(report.id)
+  error.value = null
+  try {
+    const updated = await adminApiService.updateContentReportStatus(report.id, status)
+    report.status = updated.status
+
+    if (selectedStatus.value !== null && updated.status !== selectedStatus.value) {
+      await refresh()
+    }
+  } catch {
+    error.value = 'The report status could not be changed. Try again.'
+  } finally {
+    updatingReportIds.value.delete(report.id)
   }
 }
 

@@ -270,6 +270,7 @@ export interface RecentRequestsResponse {
 }
 
 export type ContentReportType = 'question' | 'scripture'
+export type ContentReportStatus = 'unreviewed' | 'not_significant' | 'needs_investigation' | 'action_taken'
 
 export interface ContentReport {
   id: number
@@ -277,6 +278,7 @@ export interface ContentReport {
   content_text: string
   user_comment: string | null
   language: 'ru' | 'en' | 'uk'
+  status: ContentReportStatus
   created_at: string
 }
 
@@ -289,6 +291,12 @@ export interface ContentReportListParams {
   limit?: number
   after_id?: number
   before_id?: number
+  status?: ContentReportStatus
+}
+
+export interface ContentReportStatusResponse {
+  id: number
+  status: ContentReportStatus
 }
 
 // Excerpt API types
