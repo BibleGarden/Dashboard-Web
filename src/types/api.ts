@@ -269,6 +269,28 @@ export interface RecentRequestsResponse {
   count: number
 }
 
+export type ContentReportType = 'question' | 'scripture'
+
+export interface ContentReport {
+  id: number
+  content_type: ContentReportType
+  content_text: string
+  user_comment: string | null
+  language: 'ru' | 'en' | 'uk'
+  created_at: string
+}
+
+export interface ContentReportsResponse {
+  items: ContentReport[]
+  count: number
+}
+
+export interface ContentReportListParams {
+  limit?: number
+  after_id?: number
+  before_id?: number
+}
+
 // Excerpt API types
 export interface ExcerptBookModel {
   code: number

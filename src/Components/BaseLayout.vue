@@ -44,6 +44,24 @@
                                         </a>
                                     </router-link>
                                 </li>
+                                <li>
+                                    <router-link to="/content-reports" custom v-slot="{ href, navigate, isActive }">
+                                        <a :href="href" @click="navigate" :class="[
+                                            'flex items-center cursor-pointer p-3 gap-2 rounded-lg transition-colors duration-150 border group',
+                                            isActive
+                                                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 border-primary-200 dark:border-primary-800'
+                                                : 'text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-surface-50 border-transparent hover:border hover:border-surface-200 dark:hover:border-surface-700'
+                                        ]" data-testid="nav-content-reports">
+                                            <MessageSquareWarning :class="[
+                                                'w-5 h-5',
+                                                isActive
+                                                    ? 'text-primary-600 dark:text-primary-400'
+                                                    : 'text-surface-500 dark:text-surface-400 group-hover:text-surface-900 dark:group-hover:text-surface-50'
+                                            ]" />
+                                            <span class="font-medium text-base leading-tight">Content Reports</span>
+                                        </a>
+                                    </router-link>
+                                </li>
                             </ul>
                         </li>
 
@@ -269,7 +287,8 @@ import {
     Check,
     Menu,
     Lock,
-    BarChart3
+    BarChart3,
+    MessageSquareWarning
 } from 'lucide-vue-next'
 
 const isDarkMode = ref<boolean>(false)
@@ -295,6 +314,8 @@ const pageTitle = computed(() => {
             return { icon: '⏱️', title: 'Alignment Tasks' }
         case 'stats':
             return { icon: '📊', title: 'API Statistics' }
+        case 'content_reports':
+            return { icon: '⚑', title: 'Content Reports' }
         default:
             return { icon: '👋', title: 'Welcome!' }
     }

@@ -8,6 +8,7 @@ import BibleAnomalies from '../Components/BibleAnomalies.vue'
 import BibleInspect from '../Components/BibleInspect.vue'
 import AlignmentTasks from '../Components/AlignmentTasks.vue'
 import ApiStats from '../Components/ApiStats.vue'
+import ContentReports from '../Components/ContentReports.vue'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -51,6 +52,11 @@ const router = createRouter({
                     path: 'stats',
                     name: 'stats',
                     component: ApiStats
+                },
+                {
+                    path: 'content-reports',
+                    name: 'content_reports',
+                    component: ContentReports
                 }
             ]
         },
@@ -75,4 +81,3 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
-
