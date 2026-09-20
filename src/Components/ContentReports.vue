@@ -14,7 +14,24 @@
           aria-label="Filter reports by status"
           data-testid="content-report-status-filter"
           @change="refresh"
-        />
+        >
+          <template #value="{ value }">
+            <Tag
+              v-if="value"
+              :value="statusLabel(value)"
+              :severity="statusSeverity(value)"
+            />
+            <span v-else>All statuses</span>
+          </template>
+          <template #option="{ option }">
+            <Tag
+              v-if="option.value"
+              :value="option.label"
+              :severity="statusSeverity(option.value)"
+            />
+            <span v-else>{{ option.label }}</span>
+          </template>
+        </Select>
         <Button
           label="Refresh"
           icon="pi pi-refresh"
@@ -72,7 +89,14 @@
               :aria-label="`Status for report ${data.id}`"
               :data-testid="`content-report-status-${data.id}`"
               @update:modelValue="updateStatus(data, $event)"
-            />
+            >
+              <template #value="{ value }">
+                <Tag :value="statusLabel(value)" :severity="statusSeverity(value)" />
+              </template>
+              <template #option="{ option }">
+                <Tag :value="option.label" :severity="statusSeverity(option.value)" />
+              </template>
+            </Select>
           </template>
         </Column>
         <Column field="content_text" header="Reported content">
