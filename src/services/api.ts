@@ -24,7 +24,11 @@ import type {
   ModelType,
   ModelsUpdateResponse,
   StatsSummaryResponse,
-  RecentRequestsResponse
+  RecentRequestsResponse,
+  ContentReportListParams,
+  ContentReportStatus,
+  ContentReportStatusResponse,
+  ContentReportsResponse
 } from '../types/api'
 import { authService } from './auth'
 import { API_CONFIG, isPublicEndpoint, isAdminEndpoint, requireApiKey } from '../config/api'
@@ -281,6 +285,22 @@ export class ApiService {
 
   async getRecentRequests(limit: number = 50): Promise<RecentRequestsResponse> {
     const response = await this.api.get<RecentRequestsResponse>('/stats/recent', { params: { limit } })
+    return response.data
+  }
+
+  async getContentReports(params?: ContentReportListParams): Promise<ContentReportsResponse> {
+    const response = await this.api.get<ContentReportsResponse>('/content-reports', { params })
+    return response.data
+  }
+
+  async updateContentReportStatus(
+    reportId: number,
+    status: ContentReportStatus
+  ): Promise<ContentReportStatusResponse> {
+    const response = await this.api.patch<ContentReportStatusResponse>(
+      `/content-reports/${reportId}/status`,
+      { status }
+    )
     return response.data
   }
 }

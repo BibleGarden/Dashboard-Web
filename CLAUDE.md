@@ -26,6 +26,7 @@ src/
 Key files:
 - `src/Components/BaseLayout.vue` — sidebar layout, navigation
 - `src/Components/ApiStats.vue` — API statistics page
+- `src/Components/ContentReports.vue` — read-only list of Lampada AI-content reports
 
 ## Auth
 

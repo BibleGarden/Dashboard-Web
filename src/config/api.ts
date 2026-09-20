@@ -96,6 +96,7 @@ export const ADMIN_ENDPOINTS = [
   '/check_translation',
   '/check_voice',
   '/stats/',
+  '/content-reports',
 ]
 
 /**
