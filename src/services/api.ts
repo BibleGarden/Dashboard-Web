@@ -23,7 +23,8 @@ import type {
   LanguageResponse,
   ModelType,
   ModelsUpdateResponse,
-  StatsSummaryResponse,
+  StatsSummaryWireResponse,
+  StatsSummaryParams,
   RecentRequestsResponse,
   RecentRequestParams,
   ContentReportListParams,
@@ -279,8 +280,8 @@ export class ApiService {
   }
 
   // Stats endpoints
-  async getStatsSummary(days: number = 30): Promise<StatsSummaryResponse> {
-    const response = await this.api.get<StatsSummaryResponse>('/stats/summary', { params: { days } })
+  async getStatsSummary(days: number = 30, filters: StatsSummaryParams = {}): Promise<StatsSummaryWireResponse> {
+    const response = await this.api.get<StatsSummaryWireResponse>('/stats/summary', { params: { days, ...filters } })
     return response.data
   }
 

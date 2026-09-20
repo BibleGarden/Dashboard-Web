@@ -288,6 +288,16 @@ export interface StatsSummaryResponse {
   slow_endpoints: StatsSlowEndpointRow[]
 }
 
+type NewStatsSummaryFields = 'previous_totals' | 'groups' | 'daily_groups' | 'slow_endpoints'
+
+export type StatsSummaryWireResponse = Omit<StatsSummaryResponse, NewStatsSummaryFields>
+  & Partial<Pick<StatsSummaryResponse, NewStatsSummaryFields>>
+
+export interface StatsSummaryParams {
+  top_group?: StatsGroupKey
+  top_endpoint?: string
+}
+
 export interface RecentRequestRow {
   id: number
   endpoint: string
@@ -295,7 +305,7 @@ export interface RecentRequestRow {
   status_code: number
   response_time_ms: number
   client_ip: string
-  user_agent: string
+  user_agent: string | null
   created_at: string
 }
 

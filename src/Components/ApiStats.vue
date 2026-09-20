@@ -1,11 +1,21 @@
 <template>
     <div class="w-full flex flex-col gap-6">
         <!-- Period selector -->
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
             <SelectButton v-model="selectedDays" :options="periodOptions" optionLabel="label" optionValue="value"
-                @change="fetchStats" />
-            <Button icon="pi pi-refresh" severity="secondary" text rounded @click="fetchAll" :loading="loading" />
+                aria-label="Statistics period" @change="fetchStats" />
+            <Button icon="pi pi-refresh" severity="secondary" text rounded aria-label="Refresh statistics"
+                @click="fetchAll" :loading="loading" />
         </div>
+
+        <div v-if="statsError" role="alert"
+            class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+            <span>{{ statsError }}</span>
+            <Button label="Retry" icon="pi pi-refresh" severity="danger" outlined size="small"
+                @click="fetchStats" :loading="loading" />
+        </div>
+
+        <template v-if="summary">
 
         <!-- Summary cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -78,13 +88,15 @@
 
         <!-- Daily requests chart -->
         <div class="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-5">
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex flex-col items-stretch gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
                 <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Daily Activity</h3>
-                <div class="flex items-center gap-3">
+                <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                     <SelectButton v-if="chartMetric === 'requests'" v-model="splitByGroup"
-                        :options="splitOptions" optionLabel="label" optionValue="value" size="small" />
+                        :options="splitOptions" optionLabel="label" optionValue="value" size="small"
+                        aria-label="Chart traffic groups" class="flex w-full flex-wrap sm:w-auto" />
                     <SelectButton v-model="chartMetric" :options="chartMetricOptions" optionLabel="label"
-                        optionValue="value" size="small" />
+                        optionValue="value" size="small" aria-label="Chart metric"
+                        class="flex w-full flex-wrap sm:w-auto" />
                 </div>
             </div>
             <Chart v-if="chartData.labels.length" type="line" :data="chartData" :options="chartOptions"
@@ -98,14 +110,16 @@
         <div class="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-5">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Top Endpoints</h3>
-                <div class="flex items-center gap-3">
+                <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
                     <Select v-model="topGroupFilter" :options="groupFilterOptions" optionLabel="label"
-                        optionValue="value" size="small" class="w-36" />
+                        optionValue="value" size="small" name="top_endpoint_group"
+                        aria-label="Filter top endpoints by group" class="w-full sm:w-36" />
                     <InputText v-model="topEndpointFilter" placeholder="Filter by endpoint" size="small"
-                        class="w-56" />
+                        name="top_endpoint" aria-label="Filter top endpoints by endpoint"
+                        class="w-full sm:w-56" />
                 </div>
             </div>
-            <DataTable :value="filteredTopEndpoints" stripedRows size="small">
+            <DataTable :value="topEndpoints" stripedRows size="small">
                 <Column field="endpoint" header="Endpoint" />
                 <Column field="requests" header="Requests" sortable>
                     <template #body="{ data }">{{ formatNumber(data.requests) }}</template>
@@ -118,17 +132,21 @@
                     </template>
                 </Column>
                 <template #footer>
-                    <div class="flex items-center gap-4 text-sm">
-                        <span>Total: <b>{{ formatNumber(topEndpointsTotals.requests) }}</b> requests</span>
+                    <div class="flex flex-wrap items-center gap-4 text-sm">
+                        <span>Shown subset: <b>{{ formatNumber(topEndpointsTotals.requests) }}</b> requests</span>
                         <span :class="topEndpointsTotals.errors > 0 ? 'text-red-500' : ''">
                             {{ formatNumber(topEndpointsTotals.errors) }} errors
                             ({{ topEndpointsTotals.errorRate }}%)
                         </span>
-                        <span>across {{ filteredTopEndpoints.length }} endpoints</span>
+                        <span>across {{ topEndpoints.length }} returned endpoints</span>
                     </div>
                 </template>
                 <template #empty>No endpoints match the filters</template>
             </DataTable>
+            <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-surface-500 dark:text-surface-400">
+                <span>Period total: <b>{{ formatNumber(summary.totals.total_requests) }}</b> requests</span>
+                <span>Period error share: <b>{{ periodErrorRate }}%</b></span>
+            </div>
         </div>
 
         <!-- Slow endpoints -->
@@ -153,6 +171,7 @@
                 <template #empty>No endpoints with enough requests in the last 14 days</template>
             </DataTable>
         </div>
+        </template>
 
         <!-- Recent requests -->
         <div class="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-5">
@@ -161,16 +180,26 @@
                 <Button label="Refresh" icon="pi pi-refresh" severity="secondary" text size="small"
                     @click="fetchRecent" :loading="recentLoading" />
             </div>
-            <div class="flex flex-wrap items-center gap-3 mb-4">
+            <div class="flex flex-col gap-3 mb-4 sm:flex-row sm:flex-wrap sm:items-center">
                 <InputText v-model="recentFilters.endpoint" placeholder="Endpoint contains" size="small"
-                    class="w-52" />
+                    name="recent_endpoint" aria-label="Filter recent requests by endpoint"
+                    class="w-full sm:w-52" />
                 <Select v-model="recentFilters.status" :options="statusFilterOptions" optionLabel="label"
-                    optionValue="value" placeholder="Status" size="small" class="w-32" />
+                    optionValue="value" placeholder="Status" size="small" showClear name="recent_status"
+                    aria-label="Filter recent requests by status" class="w-full sm:w-32" />
                 <Select v-model="recentFilters.method" :options="methodFilterOptions" optionLabel="label"
-                    optionValue="value" placeholder="Method" size="small" class="w-32" />
-                <InputText v-model="recentFilters.client_ip" placeholder="IP contains" size="small" class="w-40" />
+                    optionValue="value" placeholder="Method" size="small" showClear name="recent_method"
+                    aria-label="Filter recent requests by method" class="w-full sm:w-32" />
+                <InputText v-model="recentFilters.client_ip" placeholder="IP contains" size="small"
+                    name="recent_client_ip" aria-label="Filter recent requests by IP" class="w-full sm:w-40" />
             </div>
-            <DataTable :value="recentRequests" stripedRows size="small" paginator :rows="10"
+            <div v-if="recentError" role="alert"
+                class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                <span>{{ recentError }}</span>
+                <Button label="Retry" icon="pi pi-refresh" severity="danger" outlined size="small"
+                    @click="fetchRecent" :loading="recentLoading" />
+            </div>
+            <DataTable v-else :value="recentRequests" stripedRows size="small" paginator :rows="10"
                 :rowsPerPageOptions="[10, 20, 50]">
                 <Column field="created_at" header="Time" style="width: 160px">
                     <template #body="{ data }">
@@ -202,7 +231,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import Chart from 'primevue/chart'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -212,7 +241,12 @@ import Select from 'primevue/select'
 import InputText from 'primevue/inputtext'
 import Tag from 'primevue/tag'
 import { adminApiService } from '../services/api'
-import type { StatsSummaryResponse, RecentRequestRow, StatsGroupKey } from '../types/api'
+import type {
+    StatsSummaryResponse,
+    StatsSummaryWireResponse,
+    RecentRequestRow,
+    StatsGroupKey,
+} from '../types/api'
 
 const periodOptions = [
     { label: '7 days', value: 7 },
@@ -223,7 +257,9 @@ const selectedDays = ref(30)
 const summary = ref<StatsSummaryResponse | null>(null)
 const recentRequests = ref<RecentRequestRow[]>([])
 const loading = ref(false)
+const statsError = ref<string | null>(null)
 const recentLoading = ref(false)
+const recentError = ref<string | null>(null)
 
 type ChartMetric = 'requests' | 'unique_ips' | 'errors' | 'avg_response_time_ms'
 const chartMetricOptions: { label: string; value: ChartMetric }[] = [
@@ -266,12 +302,6 @@ const metricColors: Record<ChartMetric, string> = {
     unique_ips: '#3b82f6',
     errors: '#ef4444',
     avg_response_time_ms: '#8b5cf6',
-}
-
-function endpointGroup(endpoint: string): StatsGroupKey {
-    if (endpoint.startsWith('/api/ai/')) return 'ai'
-    if (endpoint.startsWith('/api/')) return 'scripture'
-    return 'other'
 }
 
 const groupCards = computed(() => {
@@ -355,19 +385,11 @@ const chartOptions = {
     },
 }
 
-const filteredTopEndpoints = computed(() => {
-    const endpoints = summary.value?.top_endpoints ?? []
-    const needle = topEndpointFilter.value.trim().toLowerCase()
-    return endpoints.filter(row => {
-        if (topGroupFilter.value !== 'all' && endpointGroup(row.endpoint) !== topGroupFilter.value) return false
-        if (needle && !row.endpoint.toLowerCase().includes(needle)) return false
-        return true
-    })
-})
+const topEndpoints = computed(() => summary.value?.top_endpoints ?? [])
 
 const topEndpointsTotals = computed(() => {
-    const requests = filteredTopEndpoints.value.reduce((sum, r) => sum + r.requests, 0)
-    const errors = filteredTopEndpoints.value.reduce((sum, r) => sum + r.errors, 0)
+    const requests = topEndpoints.value.reduce((sum, r) => sum + r.requests, 0)
+    const errors = topEndpoints.value.reduce((sum, r) => sum + r.errors, 0)
     return {
         requests,
         errors,
@@ -375,8 +397,14 @@ const topEndpointsTotals = computed(() => {
     }
 })
 
+const periodErrorRate = computed(() => {
+    const totals = summary.value?.totals
+    if (!totals || totals.total_requests === 0) return '0.0'
+    return ((totals.total_errors / totals.total_requests) * 100).toFixed(1)
+})
+
 // Trend deltas against the previous period of the same length
-type Delta = { current: number; previous: number | null } | null
+type Delta = { current: number; previous: number } | null
 
 function computeDelta(current: number, previous: number | null | undefined): Delta {
     if (previous == null) return null
@@ -395,6 +423,7 @@ const avgMsDelta = computed(() =>
 function deltaText(delta: Delta): string {
     if (!delta || !summary.value) return ''
     const period = summary.value.period_days
+    if (delta.current === delta.previous) return `vs previous ${period}d: — 0%`
     if (delta.previous === 0) {
         return delta.current > 0 ? `vs previous ${period}d: new` : `vs previous ${period}d: —`
     }
@@ -404,8 +433,10 @@ function deltaText(delta: Delta): string {
 }
 
 function deltaClass(delta: Delta, invertColors = false): string {
-    if (!delta || delta.previous === 0) return 'text-surface-400 dark:text-surface-500'
-    const up = delta.current >= delta.previous
+    if (!delta || delta.previous === 0 || delta.current === delta.previous) {
+        return 'text-surface-400 dark:text-surface-500'
+    }
+    const up = delta.current > delta.previous
     const bad = invertColors ? up : false
     const good = invertColors ? !up : up
     if (bad) return 'text-red-500'
@@ -428,19 +459,50 @@ function formatTime(dt: string): string {
     })
 }
 
+function isStatsSummaryResponse(response: StatsSummaryWireResponse): response is StatsSummaryResponse {
+    const previous = response.previous_totals
+    const groups = response.groups
+    const groupValues = groups ? [groups.scripture, groups.ai, groups.other] : []
+    return typeof previous?.total_requests === 'number'
+        && typeof previous.total_errors === 'number'
+        && typeof previous.avg_response_time_ms === 'number'
+        && (typeof previous.unique_ips === 'number' || previous.unique_ips === null)
+        && groupValues.length === 3
+        && groupValues.every(group => typeof group?.requests === 'number'
+            && typeof group.errors === 'number'
+            && typeof group.avg_response_time_ms === 'number')
+        && Array.isArray(response.daily_groups)
+        && Array.isArray(response.slow_endpoints)
+}
+
 async function fetchStats() {
+    const requestSequence = ++statsRequestSequence
     loading.value = true
+    statsError.value = null
     try {
-        summary.value = await adminApiService.getStatsSummary(selectedDays.value)
+        const response = await adminApiService.getStatsSummary(selectedDays.value, {
+            top_group: topGroupFilter.value === 'all' ? undefined : topGroupFilter.value,
+            top_endpoint: topEndpointFilter.value.trim() || undefined,
+        })
+        if (requestSequence !== statsRequestSequence) return
+        if (!isStatsSummaryResponse(response)) {
+            throw new Error('Stats summary API response is missing required fields')
+        }
+        summary.value = response
     } catch (e) {
+        if (requestSequence !== statsRequestSequence) return
         console.error('Failed to load stats summary', e)
+        summary.value = null
+        statsError.value = 'Failed to load statistics. The API response is incompatible or unavailable.'
     } finally {
-        loading.value = false
+        if (requestSequence === statsRequestSequence) loading.value = false
     }
 }
 
 async function fetchRecent() {
+    const requestSequence = ++recentRequestSequence
     recentLoading.value = true
+    recentError.value = null
     try {
         const f = recentFilters.value
         const res = await adminApiService.getRecentRequests(100, {
@@ -449,23 +511,40 @@ async function fetchRecent() {
             method: f.method || undefined,
             client_ip: f.client_ip.trim() || undefined,
         })
+        if (requestSequence !== recentRequestSequence) return
         recentRequests.value = res.items
     } catch (e) {
+        if (requestSequence !== recentRequestSequence) return
         console.error('Failed to load recent requests', e)
+        recentRequests.value = []
+        recentError.value = 'Failed to load recent requests.'
     } finally {
-        recentLoading.value = false
+        if (requestSequence === recentRequestSequence) recentLoading.value = false
     }
 }
 
 let recentFilterTimer: ReturnType<typeof setTimeout> | undefined
+let topFilterTimer: ReturnType<typeof setTimeout> | undefined
+let statsRequestSequence = 0
+let recentRequestSequence = 0
 watch(recentFilters, () => {
     clearTimeout(recentFilterTimer)
     recentFilterTimer = setTimeout(fetchRecent, 400)
 }, { deep: true })
+watch([topGroupFilter, topEndpointFilter], () => {
+    clearTimeout(topFilterTimer)
+    topFilterTimer = setTimeout(fetchStats, 400)
+})
 
 async function fetchAll() {
     await Promise.all([fetchStats(), fetchRecent()])
 }
 
 onMounted(fetchAll)
+onUnmounted(() => {
+    clearTimeout(recentFilterTimer)
+    clearTimeout(topFilterTimer)
+    statsRequestSequence++
+    recentRequestSequence++
+})
 </script>
