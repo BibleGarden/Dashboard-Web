@@ -25,6 +25,7 @@ import type {
   ModelsUpdateResponse,
   StatsSummaryResponse,
   RecentRequestsResponse,
+  RecentRequestParams,
   ContentReportListParams,
   ContentReportStatus,
   ContentReportStatusResponse,
@@ -283,8 +284,8 @@ export class ApiService {
     return response.data
   }
 
-  async getRecentRequests(limit: number = 50): Promise<RecentRequestsResponse> {
-    const response = await this.api.get<RecentRequestsResponse>('/stats/recent', { params: { limit } })
+  async getRecentRequests(limit: number = 50, filters: RecentRequestParams = {}): Promise<RecentRequestsResponse> {
+    const response = await this.api.get<RecentRequestsResponse>('/stats/recent', { params: { limit, ...filters } })
     return response.data
   }
 

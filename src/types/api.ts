@@ -245,12 +245,47 @@ export interface StatsEndpointRow {
   errors: number
 }
 
+export interface StatsPreviousTotals {
+  total_requests: number
+  total_errors: number
+  avg_response_time_ms: number
+  // null when the raw table no longer covers the previous period (rows are purged after 14 days)
+  unique_ips: number | null
+}
+
+export type StatsGroupKey = 'scripture' | 'ai' | 'other'
+
+export interface StatsGroupMetrics {
+  requests: number
+  errors: number
+  avg_response_time_ms: number
+}
+
+export type StatsGroups = Record<StatsGroupKey, StatsGroupMetrics>
+
+export interface StatsDailyGroupRow {
+  date: string
+  grp: StatsGroupKey
+  requests: number
+}
+
+export interface StatsSlowEndpointRow {
+  endpoint: string
+  requests: number
+  avg_response_time_ms: number
+  max_response_time_ms: number
+}
+
 export interface StatsSummaryResponse {
   period_days: number
   totals: StatsTotals
+  previous_totals: StatsPreviousTotals
   today: StatsToday
+  groups: StatsGroups
   daily: StatsDailyRow[]
+  daily_groups: StatsDailyGroupRow[]
   top_endpoints: StatsEndpointRow[]
+  slow_endpoints: StatsSlowEndpointRow[]
 }
 
 export interface RecentRequestRow {
@@ -267,6 +302,14 @@ export interface RecentRequestRow {
 export interface RecentRequestsResponse {
   items: RecentRequestRow[]
   count: number
+}
+
+export interface RecentRequestParams {
+  limit?: number
+  endpoint?: string
+  status?: string
+  method?: string
+  client_ip?: string
 }
 
 export type ContentReportType = 'question' | 'scripture'
