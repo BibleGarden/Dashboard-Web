@@ -86,6 +86,18 @@
             </div>
         </div>
 
+        <!-- Application breakdown -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Requests by application">
+            <div v-for="app in summary.applications" :key="app.application"
+                class="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-5">
+                <div class="text-surface-500 dark:text-surface-400 text-sm font-medium mb-1">{{ applicationLabel(app.application) }}</div>
+                <div class="text-2xl font-bold text-surface-900 dark:text-surface-0">{{ formatNumber(app.requests) }}</div>
+                <div class="text-sm text-surface-400 dark:text-surface-500">
+                    {{ formatNumber(app.errors) }} errors · avg {{ app.avg_response_time_ms }} ms
+                </div>
+            </div>
+        </div>
+
         <!-- Daily requests chart -->
         <div class="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-5">
             <div class="flex flex-col items-stretch gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -190,6 +202,9 @@
                 <Select v-model="recentFilters.method" :options="methodFilterOptions" optionLabel="label"
                     optionValue="value" placeholder="Method" size="small" showClear name="recent_method"
                     aria-label="Filter recent requests by method" class="w-full sm:w-32" />
+                <Select v-model="recentFilters.application" :options="applicationFilterOptions" optionLabel="label"
+                    optionValue="value" placeholder="Application" size="small" showClear name="recent_application"
+                    aria-label="Filter recent requests by application" class="w-full sm:w-40" />
                 <InputText v-model="recentFilters.client_pseudonym" placeholder="Client ID prefix" size="small"
                     name="recent_client_pseudonym" aria-label="Filter recent requests by client pseudonym prefix"
                     maxlength="40" class="w-full sm:w-44" />
@@ -213,6 +228,9 @@
                     </template>
                 </Column>
                 <Column field="endpoint" header="Endpoint" />
+                <Column field="application" header="Application">
+                    <template #body="{ data }">{{ applicationLabel(data.application) }}</template>
+                </Column>
                 <Column field="status_code" header="Status" style="width: 80px">
                     <template #body="{ data }">
                         <Tag :value="String(data.status_code)"
@@ -247,6 +265,7 @@ import type {
     StatsSummaryWireResponse,
     RecentRequestRow,
     StatsGroupKey,
+    StatsApplicationKey,
 } from '../types/api'
 
 const periodOptions = [
@@ -290,6 +309,7 @@ const recentFilters = ref({
     status: '' as '' | '2xx' | '4xx' | '5xx',
     method: '' as '' | 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     client_pseudonym: '',
+    application: '' as '' | StatsApplicationKey,
 })
 const statusFilterOptions = [
     { label: '2xx', value: '2xx' as const },
@@ -297,6 +317,18 @@ const statusFilterOptions = [
     { label: '5xx', value: '5xx' as const },
 ]
 const methodFilterOptions = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => ({ label: m, value: m }))
+const applicationFilterOptions: { label: string; value: StatsApplicationKey }[] = [
+    { label: 'Bible Garden', value: 'bible-garden' },
+    { label: 'Lampada', value: 'lampada' },
+    { label: 'Operations', value: 'ops' },
+    { label: 'Unknown (legacy)', value: 'unknown' },
+]
+
+function applicationLabel(application: StatsApplicationKey): string {
+    const label = applicationFilterOptions.find(option => option.value === application)?.label
+    if (!label) throw new Error(`Unknown request application: ${application}`)
+    return label
+}
 
 const metricColors: Record<ChartMetric, string> = {
     requests: '#f59e0b',
@@ -472,6 +504,14 @@ function isStatsSummaryResponse(response: StatsSummaryWireResponse): response is
         && groupValues.every(group => typeof group?.requests === 'number'
             && typeof group.errors === 'number'
             && typeof group.avg_response_time_ms === 'number')
+        && Array.isArray(response.applications)
+        && response.applications.length === applicationFilterOptions.length
+        && new Set(response.applications.map(app => app.application)).size === applicationFilterOptions.length
+        && response.applications.every(app =>
+            ['bible-garden', 'lampada', 'ops', 'unknown'].includes(app.application)
+            && typeof app.requests === 'number'
+            && typeof app.errors === 'number'
+            && typeof app.avg_response_time_ms === 'number')
         && Array.isArray(response.daily_groups)
         && Array.isArray(response.slow_endpoints)
 }
@@ -511,6 +551,7 @@ async function fetchRecent() {
             status: f.status || undefined,
             method: f.method || undefined,
             client_pseudonym: f.client_pseudonym.trim() || undefined,
+            application: f.application || undefined,
         })
         if (requestSequence !== recentRequestSequence) return
         recentRequests.value = res.items

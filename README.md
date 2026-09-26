@@ -25,6 +25,8 @@ The application will be available at `http://localhost:5173`
 - **Bible Inspector** - view chapters with audio and timing
 - **Alignment Tasks** - create and monitor MFA tasks
 - **Authorization** - API key for reading, JWT for changes
+- **API statistics** - Bible Garden, Lampada, operations and historical unknown
+  request counts, with a recent-request application filter
 - **Dark Theme** - automatic system theme detection
 
 ## Technologies
