@@ -29,6 +29,8 @@ Key files:
   the first eight characters of a keyed IP pseudonym and its filter accepts
   a full pseudonym or prefix. "Unique clients" counts distinct IP-based
   pseudonyms, not people.
+  Application cards show request counts by `bible-garden`, `lampada`, `ops` and
+  historical `unknown`; recent requests can be filtered by application.
 - `src/Components/ContentReports.vue` — read-only list of Lampada AI-content reports
 
 ## Auth

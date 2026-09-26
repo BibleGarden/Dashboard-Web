@@ -282,13 +282,23 @@ export interface StatsSummaryResponse {
   previous_totals: StatsPreviousTotals
   today: StatsToday
   groups: StatsGroups
+  applications: StatsApplicationMetrics[]
   daily: StatsDailyRow[]
   daily_groups: StatsDailyGroupRow[]
   top_endpoints: StatsEndpointRow[]
   slow_endpoints: StatsSlowEndpointRow[]
 }
 
-type NewStatsSummaryFields = 'previous_totals' | 'groups' | 'daily_groups' | 'slow_endpoints'
+export type StatsApplicationKey = 'bible-garden' | 'lampada' | 'ops' | 'unknown'
+
+export interface StatsApplicationMetrics {
+  application: StatsApplicationKey
+  requests: number
+  errors: number
+  avg_response_time_ms: number
+}
+
+type NewStatsSummaryFields = 'previous_totals' | 'groups' | 'applications' | 'daily_groups' | 'slow_endpoints'
 
 export type StatsSummaryWireResponse = Omit<StatsSummaryResponse, NewStatsSummaryFields>
   & Partial<Pick<StatsSummaryResponse, NewStatsSummaryFields>>
@@ -301,6 +311,7 @@ export interface StatsSummaryParams {
 export interface RecentRequestRow {
   id: number
   endpoint: string
+  application: StatsApplicationKey
   method: string
   status_code: number
   response_time_ms: number
@@ -320,6 +331,7 @@ export interface RecentRequestParams {
   status?: string
   method?: string
   client_pseudonym?: string
+  application?: StatsApplicationKey
 }
 
 export type ContentReportType = 'question' | 'scripture'
