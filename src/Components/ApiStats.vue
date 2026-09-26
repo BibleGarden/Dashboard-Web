@@ -7,6 +7,7 @@
             <Button icon="pi pi-refresh" severity="secondary" text rounded aria-label="Refresh statistics"
                 @click="fetchAll" :loading="loading" />
         </div>
+        <p class="text-xs text-surface-500">Production daily statistics use UTC calendar days; local development uses Moscow days. Production dates before the cut-over keep historical Moscow-day boundaries.</p>
 
         <div v-if="statsError" role="alert"
             class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
@@ -209,6 +210,7 @@
                     name="recent_client_pseudonym" aria-label="Filter recent requests by client pseudonym prefix"
                     maxlength="40" class="w-full sm:w-44" />
             </div>
+            <p class="mb-2 text-xs text-surface-500">Times use your browser's zone. Requests from before the production UTC cut-over can appear three hours late.</p>
             <div v-if="recentError" role="alert"
                 class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
                 <span>{{ recentError }}</span>
@@ -260,6 +262,7 @@ import Select from 'primevue/select'
 import InputText from 'primevue/inputtext'
 import Tag from 'primevue/tag'
 import { adminApiService } from '../services/api'
+import { parseServerTimestamp } from '../utils/serverTime'
 import type {
     StatsSummaryResponse,
     StatsSummaryWireResponse,
@@ -484,8 +487,7 @@ function formatNumber(n: number | undefined | null): string {
 
 function formatTime(dt: string): string {
     if (!dt) return ''
-    // MySQL returns UTC without suffix — append 'Z' so JS parses as UTC
-    const d = new Date(dt.replace(' ', 'T') + 'Z')
+    const d = parseServerTimestamp(dt)
     return d.toLocaleString('en-GB', {
         month: 'short', day: '2-digit',
         hour: '2-digit', minute: '2-digit', second: '2-digit',
