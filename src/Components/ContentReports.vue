@@ -2,7 +2,7 @@
   <div class="w-full flex flex-col gap-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-surface-600 dark:text-surface-300">
-        Reports about questions and scripture passages generated for Lampada users.
+        Reports about questions and scripture passages generated for Lampada users. Times use your browser's zone; reports from before the production UTC cut-over can appear three hours late.
       </p>
       <div class="flex items-center gap-2">
         <Select
@@ -195,6 +195,7 @@ import Message from 'primevue/message'
 import Select from 'primevue/select'
 import Tag from 'primevue/tag'
 import { adminApiService } from '../services/api'
+import { parseServerTimestamp } from '../utils/serverTime'
 import type { ContentReport, ContentReportStatus } from '../types/api'
 
 const PAGE_SIZE = 50
@@ -256,9 +257,7 @@ function statusSeverity(status: ContentReportStatus): 'secondary' | 'info' | 'wa
 }
 
 function formatTime(value: string): string {
-  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
-  const withZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(normalized) ? normalized : `${normalized}+03:00`
-  return new Date(withZone).toLocaleString('en-GB', {
+  return parseServerTimestamp(value).toLocaleString('en-GB', {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
