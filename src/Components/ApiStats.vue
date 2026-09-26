@@ -32,12 +32,12 @@
                 </div>
             </div>
             <div class="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-5">
-                <div class="text-surface-500 dark:text-surface-400 text-sm font-medium mb-1">Unique Users (IPs)</div>
+                <div class="text-surface-500 dark:text-surface-400 text-sm font-medium mb-1">Unique clients (by IP)</div>
                 <div class="text-2xl font-bold text-surface-900 dark:text-surface-0">
                     {{ formatNumber(summary?.totals.unique_ips) }}
                 </div>
-                <div class="text-sm mt-1" :class="deltaClass(ipsDelta, false)">
-                    {{ deltaText(ipsDelta) }}
+                <div class="text-sm mt-1" :class="deltaClass(clientsDelta, false)">
+                    {{ deltaText(clientsDelta) }}
                 </div>
                 <div class="text-sm text-surface-400 dark:text-surface-500">
                     Today: {{ formatNumber(summary?.today.unique_ips) }}
@@ -124,7 +124,7 @@
                 <Column field="requests" header="Requests" sortable>
                     <template #body="{ data }">{{ formatNumber(data.requests) }}</template>
                 </Column>
-                <Column field="unique_ips" header="Unique IPs" sortable />
+                <Column field="unique_ips" header="Unique clients" sortable />
                 <Column field="avg_response_time_ms" header="Avg ms" sortable />
                 <Column field="errors" header="Errors" sortable>
                     <template #body="{ data }">
@@ -190,8 +190,9 @@
                 <Select v-model="recentFilters.method" :options="methodFilterOptions" optionLabel="label"
                     optionValue="value" placeholder="Method" size="small" showClear name="recent_method"
                     aria-label="Filter recent requests by method" class="w-full sm:w-32" />
-                <InputText v-model="recentFilters.client_ip" placeholder="IP contains" size="small"
-                    name="recent_client_ip" aria-label="Filter recent requests by IP" class="w-full sm:w-40" />
+                <InputText v-model="recentFilters.client_pseudonym" placeholder="Client ID prefix" size="small"
+                    name="recent_client_pseudonym" aria-label="Filter recent requests by client pseudonym prefix"
+                    maxlength="40" class="w-full sm:w-44" />
             </div>
             <div v-if="recentError" role="alert"
                 class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
@@ -219,9 +220,9 @@
                     </template>
                 </Column>
                 <Column field="response_time_ms" header="Time (ms)" style="width: 100px" sortable />
-                <Column field="client_ip" header="IP" style="width: 140px">
+                <Column field="client_pseudonym" header="Client" style="width: 140px">
                     <template #body="{ data }">
-                        <span class="text-xs font-mono">{{ data.client_ip }}</span>
+                        <span class="text-xs font-mono" :title="data.client_pseudonym">{{ data.client_pseudonym.slice(0, 8) }}</span>
                     </template>
                 </Column>
                 <template #empty>No requests match the filters</template>
@@ -264,7 +265,7 @@ const recentError = ref<string | null>(null)
 type ChartMetric = 'requests' | 'unique_ips' | 'errors' | 'avg_response_time_ms'
 const chartMetricOptions: { label: string; value: ChartMetric }[] = [
     { label: 'Requests', value: 'requests' },
-    { label: 'Unique IPs', value: 'unique_ips' },
+    { label: 'Unique clients', value: 'unique_ips' },
     { label: 'Errors', value: 'errors' },
     { label: 'Avg ms', value: 'avg_response_time_ms' },
 ]
@@ -288,7 +289,7 @@ const recentFilters = ref({
     endpoint: '',
     status: '' as '' | '2xx' | '4xx' | '5xx',
     method: '' as '' | 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
-    client_ip: '',
+    client_pseudonym: '',
 })
 const statusFilterOptions = [
     { label: '2xx', value: '2xx' as const },
@@ -415,7 +416,7 @@ const requestsDelta = computed(() =>
     summary.value ? computeDelta(summary.value.totals.total_requests, summary.value.previous_totals.total_requests) : null)
 const errorsDelta = computed(() =>
     summary.value ? computeDelta(summary.value.totals.total_errors, summary.value.previous_totals.total_errors) : null)
-const ipsDelta = computed(() =>
+const clientsDelta = computed(() =>
     summary.value ? computeDelta(summary.value.totals.unique_ips, summary.value.previous_totals.unique_ips) : null)
 const avgMsDelta = computed(() =>
     summary.value ? computeDelta(summary.value.totals.avg_response_time_ms, summary.value.previous_totals.avg_response_time_ms) : null)
@@ -509,7 +510,7 @@ async function fetchRecent() {
             endpoint: f.endpoint.trim() || undefined,
             status: f.status || undefined,
             method: f.method || undefined,
-            client_ip: f.client_ip.trim() || undefined,
+            client_pseudonym: f.client_pseudonym.trim() || undefined,
         })
         if (requestSequence !== recentRequestSequence) return
         recentRequests.value = res.items

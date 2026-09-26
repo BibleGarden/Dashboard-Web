@@ -25,7 +25,10 @@ src/
 
 Key files:
 - `src/Components/BaseLayout.vue` — sidebar layout, navigation
-- `src/Components/ApiStats.vue` — API statistics page
+- `src/Components/ApiStats.vue` — API statistics page; its client column shows
+  the first eight characters of a keyed IP pseudonym and its filter accepts
+  a full pseudonym or prefix. "Unique clients" counts distinct IP-based
+  pseudonyms, not people.
 - `src/Components/ContentReports.vue` — read-only list of Lampada AI-content reports
 
 ## Auth

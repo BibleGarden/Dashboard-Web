@@ -214,7 +214,7 @@ export interface ModelsUpdateResponse {
   updated_languages: number
 }
 
-// API Stats types
+// API Stats types. unique_ips counts distinct keyed IP pseudonyms, not people.
 export interface StatsTotals {
   total_requests: number
   total_errors: number
@@ -304,7 +304,7 @@ export interface RecentRequestRow {
   method: string
   status_code: number
   response_time_ms: number
-  client_ip: string
+  client_pseudonym: string // First 40 hex characters of the keyed address HMAC.
   user_agent: string | null
   created_at: string
 }
@@ -319,7 +319,7 @@ export interface RecentRequestParams {
   endpoint?: string
   status?: string
   method?: string
-  client_ip?: string
+  client_pseudonym?: string
 }
 
 export type ContentReportType = 'question' | 'scripture'
