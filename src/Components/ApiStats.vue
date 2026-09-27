@@ -151,7 +151,7 @@
                     name="recent_client_pseudonym" aria-label="Filter recent requests by client pseudonym prefix"
                     maxlength="40" class="w-full sm:w-44" />
             </div>
-            <p class="mb-2 text-xs text-surface-500">Times use your browser's zone. Requests from before the production UTC cut-over can appear three hours late.</p>
+            <p class="mb-2 text-xs text-surface-500">Times use your browser's zone.</p>
             <div v-if="recentError" role="alert"
                 class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
                 <span>{{ recentError }}</span>
