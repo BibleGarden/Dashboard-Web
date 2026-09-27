@@ -38,7 +38,7 @@
             aria-label="Requests by application">
             <span v-for="app in visibleApplications" :key="app.application" class="text-surface-500 dark:text-surface-400">
                 <span class="font-medium text-surface-900 dark:text-surface-0">{{ applicationLabel(app.application) }}</span>
-                {{ formatNumber(app.requests) }} requests ·
+                {{ formatNumber(app.requests) }} {{ app.requests === 1 ? 'request' : 'requests' }} ·
                 <span :class="(app.server_errors ?? 0) > 0 ? 'text-red-500 font-semibold' : ''">{{ formatCount(app.server_errors) }} 5xx</span>
             </span>
         </div>
