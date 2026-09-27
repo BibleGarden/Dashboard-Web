@@ -7,6 +7,7 @@ import {
   periodLengthLabel,
   periodToParams,
   rangeDays,
+  utcTodayAsLocalDate,
 } from '../src/utils/statsPeriod.ts'
 
 test('maps hour and date periods to exclusive query parameter sets', () => {
@@ -46,4 +47,10 @@ test('delta text and tone against the previous period', () => {
   assert.deepEqual(formatDelta(3, 3, '7d', true), { text: 'vs previous 7d: no change', tone: 'neutral' })
   assert.deepEqual(formatDelta(2, 0, '7d', true), { text: 'vs previous 7d: new', tone: 'bad' })
   assert.deepEqual(formatDelta(2, null, '7d', true), { text: 'vs previous 7d: n/a', tone: 'neutral' })
+  assert.deepEqual(formatDelta(null, 2, '7d', true), { text: 'vs previous 7d: n/a', tone: 'neutral' })
+})
+
+test('calendar max date is the UTC day, expressed as a local date', () => {
+  const max = utcTodayAsLocalDate(new Date('2026-09-27T22:30:00Z'))
+  assert.deepEqual([max.getFullYear(), max.getMonth(), max.getDate()], [2026, 8, 27])
 })

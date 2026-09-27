@@ -5,7 +5,7 @@
             <SelectButton v-model="selectedPreset" :options="presetOptions" optionLabel="label" optionValue="value"
                 :allowEmpty="false" aria-label="Statistics period" class="flex flex-wrap" />
             <DatePicker v-if="selectedPreset === 'custom'" v-model="customRange" selectionMode="range"
-                :manualInput="false" :maxDate="new Date()" dateFormat="yy-mm-dd" showIcon placeholder="From — to"
+                :manualInput="false" :maxDate="maxSelectableDate" dateFormat="yy-mm-dd" showIcon placeholder="From — to"
                 inputId="stats_custom_range" aria-label="Custom date range" class="w-full sm:w-64" />
             <Button icon="pi pi-refresh" severity="secondary" text rounded aria-label="Refresh statistics"
                 @click="fetchAll" :loading="loading" />
@@ -39,7 +39,7 @@
             <span v-for="app in visibleApplications" :key="app.application" class="text-surface-500 dark:text-surface-400">
                 <span class="font-medium text-surface-900 dark:text-surface-0">{{ applicationLabel(app.application) }}</span>
                 {{ formatNumber(app.requests) }} requests ·
-                <span :class="app.server_errors > 0 ? 'text-red-500 font-semibold' : ''">{{ formatNumber(app.server_errors) }} 5xx</span>
+                <span :class="(app.server_errors ?? 0) > 0 ? 'text-red-500 font-semibold' : ''">{{ formatCount(app.server_errors) }} 5xx</span>
             </span>
         </div>
 
@@ -201,6 +201,7 @@ import {
     customRangePeriod,
     formatDelta,
     lastDaysPeriod,
+    utcTodayAsLocalDate,
     periodLengthLabel,
     periodToParams,
     type DeltaTone,
@@ -227,6 +228,7 @@ const presetDays: Record<Exclude<Preset, '24h' | 'custom'>, number> = { '7d': 7,
 const selectedPreset = ref<Preset>('24h')
 const customRange = ref<(Date | null)[] | null>(null)
 const rangeError = ref<string | null>(null)
+const maxSelectableDate = utcTodayAsLocalDate(new Date())
 
 const summary = ref<StatsSummaryResponse | null>(null)
 // Period the displayed summary was loaded for; comparison labels follow it, not the selector.
@@ -304,12 +306,9 @@ interface CardView {
     note: string | null
 }
 
-// Daily counters for 5xx and degradations exist only from the day they were introduced.
-function coverageNote(since: string | null): string | null {
-    const period = summaryPeriod.value
-    if (!period || period.mode !== 'dates') return null
-    if (since === null) return 'Not counted for past days yet'
-    return since > period.dateFrom ? `Counted since ${since}` : null
+// Set by the API only when the period starts before the data behind a number.
+function sinceNote(since: string | null): string | null {
+    return since === null ? null : `Counted since ${since}`
 }
 
 const cards = computed<CardView[]>(() => {
@@ -319,35 +318,49 @@ const cards = computed<CardView[]>(() => {
     const length = periodLengthLabel(period)
     const t = s.totals
     const p = s.previous
+    const rawSince = s.coverage.raw_since === null ? null : formatTime(s.coverage.raw_since)
+    // In hours mode every number comes from raw rows; in date mode only unique clients do.
+    const rawNote = sinceNote(rawSince)
+    const hoursRawNote = s.period.mode === 'hours' ? rawNote : null
     const plain = 'text-surface-900 dark:text-surface-0'
     return [
         {
             key: 'requests', label: 'Requests', value: formatNumber(t.requests), valueClass: plain,
-            delta: formatDelta(t.requests, p.requests, length, false), note: null,
+            delta: formatDelta(t.requests, p.requests, length, false), note: hoursRawNote,
         },
         {
             key: 'unique_clients', label: 'Unique clients (by IP)', value: formatNumber(t.unique_clients), valueClass: plain,
-            delta: formatDelta(t.unique_clients, p.unique_clients, length, false), note: null,
+            delta: formatDelta(t.unique_clients, p.unique_clients, length, false), note: rawNote,
         },
         {
-            key: 'server_errors', label: 'Server errors (5xx)', value: formatNumber(t.server_errors),
-            valueClass: t.server_errors > 0 ? 'text-red-500' : 'text-green-500',
+            key: 'server_errors', label: 'Server errors (5xx)', value: formatCount(t.server_errors),
+            valueClass: countClass(t.server_errors, 'text-red-500'),
             delta: formatDelta(t.server_errors, p.server_errors, length, true),
-            note: coverageNote(s.coverage.server_errors_since),
+            note: failureNote(t.server_errors, s.coverage.server_errors_since, hoursRawNote),
         },
         {
-            key: 'degraded', label: 'AI degradations', value: formatNumber(t.degraded),
-            valueClass: t.degraded > 0 ? 'text-amber-500' : 'text-green-500',
+            key: 'degraded', label: 'AI degradations', value: formatCount(t.degraded),
+            valueClass: countClass(t.degraded, 'text-amber-500'),
             delta: formatDelta(t.degraded, p.degraded, length, true),
-            note: coverageNote(s.coverage.degraded_since),
+            note: failureNote(t.degraded, s.coverage.degraded_since, hoursRawNote),
         },
         {
             key: 'avg_response_time_ms', label: 'Response time (avg)', value: `${formatNumber(t.avg_response_time_ms)} ms`,
             valueClass: plain,
-            delta: formatDelta(t.avg_response_time_ms, p.avg_response_time_ms, length, true), note: null,
+            delta: formatDelta(t.avg_response_time_ms, p.avg_response_time_ms, length, true), note: hoursRawNote,
         },
     ]
 })
+
+function failureNote(value: number | null, since: string | null, rawNote: string | null): string | null {
+    if (value === null) return 'Not counted for these days'
+    return sinceNote(since) ?? rawNote
+}
+
+function countClass(value: number | null, positiveClass: string): string {
+    if (value === null) return 'text-surface-400 dark:text-surface-500'
+    return value > 0 ? positiveClass : 'text-green-500'
+}
 
 const visibleApplications = computed(() =>
     (summary.value?.applications ?? []).filter(app => app.application !== 'unknown' || app.requests > 0))
@@ -424,6 +437,11 @@ function formatNumber(n: number): string {
     return n.toLocaleString()
 }
 
+// Failure counters are null for days aggregated before they were introduced.
+function formatCount(n: number | null): string {
+    return n === null ? '—' : formatNumber(n)
+}
+
 function formatTime(dt: string): string {
     const d = parseServerTimestamp(dt)
     return d.toLocaleString('en-GB', {
@@ -435,13 +453,19 @@ function formatTime(dt: string): string {
 const totalsKeys: (keyof StatsTotals)[] = [
     'requests', 'unique_clients', 'server_errors', 'client_errors', 'degraded', 'avg_response_time_ms',
 ]
+const requiredTotalsKeys: (keyof StatsTotals)[] = ['requests', 'unique_clients', 'avg_response_time_ms']
+
+function isCount(value: unknown): boolean {
+    return value === null || typeof value === 'number'
+}
 
 function isStatsSummaryResponse(response: StatsSummaryResponse): boolean {
     const bucket = response.period?.bucket
     return (bucket === 'hour' || bucket === 'day')
-        && totalsKeys.every(key => typeof response.totals?.[key] === 'number')
-        && totalsKeys.every(key => response.previous?.[key] === null || typeof response.previous?.[key] === 'number')
+        && requiredTotalsKeys.every(key => typeof response.totals?.[key] === 'number')
+        && totalsKeys.every(key => isCount(response.totals?.[key]) && isCount(response.previous?.[key]))
         && response.coverage !== undefined
+        && response.coverage.raw_since !== undefined
         && Array.isArray(response.applications)
         && response.applications.every(app => applicationFilterOptions.some(option => option.value === app.application))
         && Array.isArray(response.series)

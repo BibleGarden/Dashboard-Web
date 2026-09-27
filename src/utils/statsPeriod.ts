@@ -31,6 +31,14 @@ export function rangeDays(dateFrom: string, dateTo: string): number {
 }
 
 /**
+ * Today's UTC date as a local-midnight Date, for the calendar's max selectable day:
+ * the API refuses dates after the database's today (UTC on prod).
+ */
+export function utcTodayAsLocalDate(now: Date): Date {
+  return new Date(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+}
+
+/**
  * The last `days` calendar days ending today. Production statistics use UTC days,
  * so "today" is the UTC date of `now`.
  */
@@ -76,13 +84,13 @@ export interface DeltaView {
  * growth of the other metrics stays neutral.
  */
 export function formatDelta(
-  current: number,
+  current: number | null,
   previous: number | null,
   lengthLabel: string,
   higherIsWorse: boolean,
 ): DeltaView {
   const prefix = `vs previous ${lengthLabel}:`
-  if (previous === null) return { text: `${prefix} n/a`, tone: 'neutral' }
+  if (current === null || previous === null) return { text: `${prefix} n/a`, tone: 'neutral' }
   if (current === previous) return { text: `${prefix} no change`, tone: 'neutral' }
   if (previous === 0) return { text: `${prefix} new`, tone: higherIsWorse ? 'bad' : 'neutral' }
   const pct = ((current - previous) / previous) * 100

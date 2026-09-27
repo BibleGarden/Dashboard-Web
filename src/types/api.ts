@@ -218,23 +218,25 @@ export interface ModelsUpdateResponse {
 export type StatsApplicationKey = 'bible-garden' | 'lampada' | 'ops' | 'unknown'
 
 export type StatsPeriodInfo =
-  | { mode: 'hours'; hours: number; bucket: 'hour' }
-  | { mode: 'dates'; date_from: string; date_to: string; bucket: 'day' }
+  | { mode: 'hours'; hours: number; date_from: null; date_to: null; bucket: 'hour' }
+  | { mode: 'dates'; hours: null; date_from: string; date_to: string; bucket: 'day' }
 
+// Failure counters are null when no day of the range has them yet.
 export interface StatsTotals {
   requests: number
   unique_clients: number
-  server_errors: number
-  client_errors: number
-  degraded: number
+  server_errors: number | null
+  client_errors: number | null
+  degraded: number | null
   avg_response_time_ms: number
 }
 
 // null where the previous period is not known (raw rows purged, counters added later).
 export type StatsPreviousTotals = { [K in keyof StatsTotals]: number | null }
 
+// Set only when the period starts before the data: raw rows (UTC datetime) or daily counters (date).
 export interface StatsCoverage {
-  // First day with daily server-error / degradation counters; null when none exist yet.
+  raw_since: string | null
   server_errors_since: string | null
   degraded_since: string | null
 }
@@ -242,8 +244,8 @@ export interface StatsCoverage {
 export interface StatsApplicationMetrics {
   application: StatsApplicationKey
   requests: number
-  server_errors: number
-  degraded: number
+  server_errors: number | null
+  degraded: number | null
   avg_response_time_ms: number
 }
 
@@ -251,8 +253,8 @@ export interface StatsSeriesRow {
   bucket_start: string
   requests: number
   unique_clients: number
-  server_errors: number
-  degraded: number
+  server_errors: number | null
+  degraded: number | null
   avg_response_time_ms: number
   scripture_requests: number
   ai_requests: number
@@ -283,6 +285,7 @@ export interface StatsDegradationRow {
 }
 
 export interface StatsErrorsResponse {
+  period: StatsPeriodInfo
   raw_available_from: string | null
   partial: boolean
   errors: StatsErrorRow[]
