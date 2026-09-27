@@ -6,11 +6,15 @@
                 :allowEmpty="false" aria-label="Statistics period" class="flex flex-wrap" />
             <DatePicker v-if="selectedPreset === 'custom'" v-model="customRange" selectionMode="range"
                 :manualInput="false" :maxDate="maxSelectableDate" dateFormat="yy-mm-dd" showIcon placeholder="From — to"
+                @show="refreshMaxSelectableDate"
                 inputId="stats_custom_range" aria-label="Custom date range" class="w-full sm:w-64" />
             <Button icon="pi pi-refresh" severity="secondary" text rounded aria-label="Refresh statistics"
                 @click="fetchAll" :loading="loading" />
         </div>
         <p v-if="rangeError" role="alert" class="text-sm text-red-600 dark:text-red-400">{{ rangeError }}</p>
+        <p v-else-if="awaitingCustomRange" class="text-sm text-surface-600 dark:text-surface-300">
+            Pick a start and an end date to load statistics for a custom range.
+        </p>
         <p class="text-xs text-surface-500">Production daily statistics use UTC calendar days; local development uses Moscow days. Production dates before the cut-over keep historical Moscow-day boundaries.</p>
 
         <div v-if="statsError" role="alert"
@@ -67,7 +71,7 @@
         </template>
 
         <!-- Errors and degradations -->
-        <div class="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-5">
+        <div v-if="!awaitingCustomRange && !rangeError" class="bg-surface-0 dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 p-3 sm:p-5">
             <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0 mb-1">Errors</h3>
             <div v-if="errorsError" role="alert"
                 class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
@@ -77,20 +81,25 @@
             </div>
             <template v-else-if="errorsData">
                 <p v-if="errorsCoverageNote" class="mb-3 text-sm text-amber-700 dark:text-amber-400">{{ errorsCoverageNote }}</p>
+                <!-- On phones the endpoint is stacked under the code/reason so the table fits without scrolling -->
                 <DataTable :value="errorsData.errors" stripedRows size="small">
-                    <Column field="status_code" header="Code" style="width: 80px">
+                    <Column field="status_code" header="Code" headerClass="w-20">
                         <template #body="{ data }">
-                            <Tag :value="String(data.status_code)" :severity="data.status_code >= 500 ? 'danger' : 'secondary'" />
+                            <div class="flex items-center gap-2">
+                                <Tag :value="String(data.status_code)" :severity="data.status_code >= 500 ? 'danger' : 'secondary'" />
+                                <span class="text-xs text-surface-500 sm:hidden">{{ data.method }}</span>
+                            </div>
+                            <div class="mt-1 break-all text-xs sm:hidden">{{ data.endpoint }}</div>
                         </template>
                     </Column>
-                    <Column field="method" header="Method" style="width: 80px" />
-                    <Column field="endpoint" header="Endpoint" />
-                    <Column field="count" header="Count" style="width: 90px">
+                    <Column field="method" header="Method" headerClass="hidden sm:table-cell w-20" bodyClass="hidden sm:table-cell" />
+                    <Column field="endpoint" header="Endpoint" headerClass="hidden sm:table-cell" bodyClass="hidden sm:table-cell break-all" />
+                    <Column field="count" header="Count" headerClass="w-16">
                         <template #body="{ data }">{{ formatNumber(data.count) }}</template>
                     </Column>
-                    <Column field="last_seen" header="Last seen" style="width: 160px">
+                    <Column field="last_seen" header="Last seen" headerClass="w-28">
                         <template #body="{ data }">
-                            <span class="text-xs font-mono">{{ formatTime(data.last_seen) }}</span>
+                            <span class="whitespace-nowrap text-xs" :title="formatTime(data.last_seen)">{{ formatShortTime(data.last_seen) }}</span>
                         </template>
                     </Column>
                     <template #empty>No errors in the selected period</template>
@@ -99,15 +108,18 @@
                 <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0 mt-6 mb-3">Degradations</h3>
                 <DataTable :value="errorsData.degradations" stripedRows size="small">
                     <Column field="reason" header="Reason">
-                        <template #body="{ data }"><Tag :value="data.reason" severity="warn" /></template>
+                        <template #body="{ data }">
+                            <Tag :value="data.reason" severity="warn" class="max-w-full break-all" />
+                            <div class="mt-1 break-all text-xs sm:hidden">{{ data.endpoint }}</div>
+                        </template>
                     </Column>
-                    <Column field="endpoint" header="Endpoint" />
-                    <Column field="count" header="Count" style="width: 90px">
+                    <Column field="endpoint" header="Endpoint" headerClass="hidden sm:table-cell" bodyClass="hidden sm:table-cell break-all" />
+                    <Column field="count" header="Count" headerClass="w-16">
                         <template #body="{ data }">{{ formatNumber(data.count) }}</template>
                     </Column>
-                    <Column field="last_seen" header="Last seen" style="width: 160px">
+                    <Column field="last_seen" header="Last seen" headerClass="w-28">
                         <template #body="{ data }">
-                            <span class="text-xs font-mono">{{ formatTime(data.last_seen) }}</span>
+                            <span class="whitespace-nowrap text-xs" :title="formatTime(data.last_seen)">{{ formatShortTime(data.last_seen) }}</span>
                         </template>
                     </Column>
                     <template #empty>No degradations in the selected period</template>
@@ -197,9 +209,12 @@ import DatePicker from 'primevue/datepicker'
 import Tag from 'primevue/tag'
 import { adminApiService } from '../services/api'
 import { parseServerTimestamp } from '../utils/serverTime'
+import { validationDetail } from '../utils/apiError'
 import {
     customRangePeriod,
     formatDelta,
+    averageOrNull,
+    hourTickLabels,
     lastDaysPeriod,
     utcTodayAsLocalDate,
     periodLengthLabel,
@@ -228,8 +243,14 @@ const presetDays: Record<Exclude<Preset, '24h' | 'custom'>, number> = { '7d': 7,
 const selectedPreset = ref<Preset>('24h')
 const customRange = ref<(Date | null)[] | null>(null)
 const rangeError = ref<string | null>(null)
-const maxSelectableDate = utcTodayAsLocalDate(new Date())
+// The API refuses dates after its today (UTC on prod); recomputed so a tab left open past midnight stays valid.
+const maxSelectableDate = ref(utcTodayAsLocalDate(new Date()))
+function refreshMaxSelectableDate() {
+    maxSelectableDate.value = utcTodayAsLocalDate(new Date())
+}
 
+const awaitingCustomRange = computed(() =>
+    selectedPreset.value === 'custom' && !(customRange.value?.[0] && customRange.value?.[1]))
 const summary = ref<StatsSummaryResponse | null>(null)
 // Period the displayed summary was loaded for; comparison labels follow it, not the selector.
 const summaryPeriod = ref<StatsPeriod | null>(null)
@@ -323,14 +344,18 @@ const cards = computed<CardView[]>(() => {
     const rawNote = sinceNote(rawSince)
     const hoursRawNote = s.period.mode === 'hours' ? rawNote : null
     const plain = 'text-surface-900 dark:text-surface-0'
+    const muted = 'text-surface-400 dark:text-surface-500'
+    const avgMs = averageOrNull(t.avg_response_time_ms, t.requests)
     return [
         {
             key: 'requests', label: 'Requests', value: formatNumber(t.requests), valueClass: plain,
             delta: formatDelta(t.requests, p.requests, length, false), note: hoursRawNote,
         },
         {
-            key: 'unique_clients', label: 'Unique clients (by IP)', value: formatNumber(t.unique_clients), valueClass: plain,
-            delta: formatDelta(t.unique_clients, p.unique_clients, length, false), note: rawNote,
+            key: 'unique_clients', label: 'Unique clients (by IP)', value: formatCount(t.unique_clients),
+            valueClass: t.unique_clients === null ? muted : plain,
+            delta: formatDelta(t.unique_clients, p.unique_clients, length, false),
+            note: t.unique_clients === null ? 'Not available: the range is older than the raw request log' : rawNote,
         },
         {
             key: 'server_errors', label: 'Server errors (5xx)', value: formatCount(t.server_errors),
@@ -345,9 +370,11 @@ const cards = computed<CardView[]>(() => {
             note: failureNote(t.degraded, s.coverage.degraded_since, hoursRawNote),
         },
         {
-            key: 'avg_response_time_ms', label: 'Response time (avg)', value: `${formatNumber(t.avg_response_time_ms)} ms`,
-            valueClass: plain,
-            delta: formatDelta(t.avg_response_time_ms, p.avg_response_time_ms, length, true), note: hoursRawNote,
+            key: 'avg_response_time_ms', label: 'Response time (avg)',
+            value: avgMs === null ? 'n/a' : `${formatNumber(avgMs)} ms`,
+            valueClass: avgMs === null ? muted : plain,
+            delta: formatDelta(avgMs, averageOrNull(p.avg_response_time_ms, p.requests), length, true),
+            note: hoursRawNote,
         },
     ]
 })
@@ -372,16 +399,24 @@ const errorsCoverageNote = computed(() => {
     return `Raw request log starts at ${formatTime(data.raw_available_from)}; earlier errors and degradations are not listed.`
 })
 
-function bucketLabel(bucketStart: string): string {
-    if (summary.value?.period.bucket === 'day') return bucketStart
-    return parseServerTimestamp(bucketStart).toLocaleString('en-GB', {
+const isHourly = computed(() => summary.value?.period.bucket === 'hour')
+
+// Full bucket names for tooltips; the axis shows the short tick labels.
+const chartLabels = computed(() => {
+    const series = summary.value?.series ?? []
+    if (!isHourly.value) return series.map(row => row.bucket_start)
+    return series.map(row => parseServerTimestamp(row.bucket_start).toLocaleString('en-GB', {
         month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit',
-    })
-}
+    }))
+})
+
+const hourTicks = computed(() => isHourly.value
+    ? hourTickLabels((summary.value?.series ?? []).map(row => parseServerTimestamp(row.bucket_start)))
+    : [])
 
 const chartData = computed(() => {
     const series = summary.value?.series ?? []
-    const labels = series.map(row => bucketLabel(row.bucket_start))
+    const labels = chartLabels.value
     if (chartMetric.value === 'requests' && splitByGroup.value) {
         return {
             labels,
@@ -421,7 +456,7 @@ const chartData = computed(() => {
     }
 })
 
-const chartOptions = {
+const chartOptions = computed(() => ({
     responsive: true,
     maintainAspectRatio: false,
     interaction: { intersect: false, mode: 'index' as const },
@@ -429,9 +464,18 @@ const chartOptions = {
         legend: { position: 'top' as const },
     },
     scales: {
+        x: isHourly.value
+            ? {
+                ticks: {
+                    autoSkip: false,
+                    maxRotation: 0,
+                    callback: (_value: unknown, index: number) => hourTicks.value[index],
+                },
+            }
+            : { ticks: { maxRotation: 0 } },
         y: { beginAtZero: true },
     },
-}
+}))
 
 function formatNumber(n: number): string {
     return n.toLocaleString()
@@ -440,6 +484,12 @@ function formatNumber(n: number): string {
 // Failure counters are null for days aggregated before they were introduced.
 function formatCount(n: number | null): string {
     return n === null ? '—' : formatNumber(n)
+}
+
+function formatShortTime(dt: string): string {
+    return parseServerTimestamp(dt).toLocaleString('en-GB', {
+        month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    })
 }
 
 function formatTime(dt: string): string {
@@ -453,7 +503,7 @@ function formatTime(dt: string): string {
 const totalsKeys: (keyof StatsTotals)[] = [
     'requests', 'unique_clients', 'server_errors', 'client_errors', 'degraded', 'avg_response_time_ms',
 ]
-const requiredTotalsKeys: (keyof StatsTotals)[] = ['requests', 'unique_clients', 'avg_response_time_ms']
+const requiredTotalsKeys: (keyof StatsTotals)[] = ['requests', 'avg_response_time_ms']
 
 function isCount(value: unknown): boolean {
     return value === null || typeof value === 'number'
@@ -480,6 +530,7 @@ function isStatsErrorsResponse(response: StatsErrorsResponse): boolean {
 /** The selected period, or null while a custom range is incomplete or invalid. */
 function resolvePeriod(): StatsPeriod | null {
     rangeError.value = null
+    refreshMaxSelectableDate()
     const preset = selectedPreset.value
     if (preset === '24h') return { mode: 'hours', hours: 24 }
     if (preset !== 'custom') return lastDaysPeriod(presetDays[preset], new Date())
@@ -507,7 +558,11 @@ async function fetchStats(period: StatsPeriod) {
         if (requestSequence !== statsRequestSequence) return
         console.error('Failed to load stats summary', e)
         summary.value = null
-        statsError.value = 'Failed to load statistics. The API response is incompatible or unavailable.'
+        summaryPeriod.value = null
+        const detail = validationDetail(e)
+        statsError.value = detail
+            ? `The API rejected the period: ${detail}`
+            : 'Failed to load statistics. The API response is incompatible or unavailable.'
     } finally {
         if (requestSequence === statsRequestSequence) loading.value = false
     }
@@ -528,7 +583,10 @@ async function fetchErrorsFor(period: StatsPeriod) {
         if (requestSequence !== errorsRequestSequence) return
         console.error('Failed to load stats errors', e)
         errorsData.value = null
-        errorsError.value = 'Failed to load errors and degradations.'
+        const detail = validationDetail(e)
+        errorsError.value = detail
+            ? `The API rejected the period: ${detail}`
+            : 'Failed to load errors and degradations.'
     } finally {
         if (requestSequence === errorsRequestSequence) errorsLoading.value = false
     }
@@ -539,9 +597,25 @@ async function fetchErrors() {
     if (period) await fetchErrorsFor(period)
 }
 
+// Drops data of a previous period and cancels its pending requests.
+function clearPeriodData() {
+    statsRequestSequence++
+    errorsRequestSequence++
+    summary.value = null
+    summaryPeriod.value = null
+    errorsData.value = null
+    statsError.value = null
+    errorsError.value = null
+    loading.value = false
+    errorsLoading.value = false
+}
+
 async function fetchPeriodData() {
     const period = resolvePeriod()
-    if (!period) return
+    if (!period) {
+        clearPeriodData()
+        return
+    }
     await Promise.all([fetchStats(period), fetchErrorsFor(period)])
 }
 

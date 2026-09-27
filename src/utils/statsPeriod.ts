@@ -99,3 +99,28 @@ export function formatDelta(
   const tone: DeltaTone = higherIsWorse ? (up ? 'bad' : 'good') : 'neutral'
   return { text: `${prefix} ${arrow} ${Math.abs(pct).toFixed(0)}%`, tone }
 }
+
+const MAX_HOUR_TICKS = 8
+
+/**
+ * X-axis labels for an hourly series: every `step`-th bucket shows "HH:MM" (local time),
+ * with the date as a second line on the first shown tick and whenever the day changes;
+ * the other buckets get no label. `step` keeps the axis to at most eight ticks.
+ */
+export function hourTickLabels(bucketStarts: Date[]): (string | string[])[] {
+  const step = Math.max(1, Math.ceil(bucketStarts.length / MAX_HOUR_TICKS))
+  let previousDay: string | null = null
+  return bucketStarts.map((start, index) => {
+    if (index % step !== 0) return ''
+    const time = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`
+    const day = start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+    const label = day === previousDay ? time : [time, day]
+    previousDay = day
+    return label
+  })
+}
+
+/** Average over a period, or null when it had no requests (the API reports 0 then). */
+export function averageOrNull(average: number | null, requests: number | null): number | null {
+  return requests === 0 ? null : average
+}

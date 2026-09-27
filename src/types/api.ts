@@ -221,10 +221,11 @@ export type StatsPeriodInfo =
   | { mode: 'hours'; hours: number; date_from: null; date_to: null; bucket: 'hour' }
   | { mode: 'dates'; hours: null; date_from: string; date_to: string; bucket: 'day' }
 
-// Failure counters are null when no day of the range has them yet.
+// Failure counters are null when no day of the range has them yet; unique_clients is null
+// when a date range lies before the raw request log.
 export interface StatsTotals {
   requests: number
-  unique_clients: number
+  unique_clients: number | null
   server_errors: number | null
   client_errors: number | null
   degraded: number | null
@@ -252,7 +253,7 @@ export interface StatsApplicationMetrics {
 export interface StatsSeriesRow {
   bucket_start: string
   requests: number
-  unique_clients: number
+  unique_clients: number | null
   server_errors: number | null
   degraded: number | null
   avg_response_time_ms: number

@@ -1,7 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  averageOrNull,
   customRangePeriod,
+  hourTickLabels,
   formatDelta,
   lastDaysPeriod,
   periodLengthLabel,
@@ -53,4 +55,19 @@ test('delta text and tone against the previous period', () => {
 test('calendar max date is the UTC day, expressed as a local date', () => {
   const max = utcTodayAsLocalDate(new Date('2026-09-27T22:30:00Z'))
   assert.deepEqual([max.getFullYear(), max.getMonth(), max.getDate()], [2026, 8, 27])
+})
+
+test('hourly ticks show HH:MM and the date on the first tick and on day change', () => {
+  const start = new Date(2026, 8, 27, 20, 0)
+  const hours = Array.from({ length: 9 }, (_, i) => new Date(start.getTime() + i * 3600_000))
+  const day = date => date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+  // 9 buckets → step 2: 20:00, 22:00, 00:00 (new day), 02:00, 04:00
+  assert.deepEqual(hourTickLabels(hours),
+    [['20:00', day(hours[0])], '', '22:00', '', ['00:00', day(hours[4])], '', '02:00', '', '04:00'])
+})
+
+test('average is unknown for a period without requests', () => {
+  assert.equal(averageOrNull(0, 0), null)
+  assert.equal(averageOrNull(120, 5), 120)
+  assert.equal(averageOrNull(120, null), 120)
 })
