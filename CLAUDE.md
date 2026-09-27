@@ -29,8 +29,14 @@ Key files:
   the first eight characters of a keyed IP pseudonym and its filter accepts
   a full pseudonym or prefix. "Unique clients" counts distinct IP-based
   pseudonyms, not people.
-  Application cards show request counts by `bible-garden`, `lampada`, `ops` and
-  historical `unknown`; recent requests can be filtered by application.
+  Default period is the last 24 hours (hourly chart); presets 7/30/90 days and a
+  custom date range use daily buckets. Five cards (requests, unique clients, 5xx,
+  AI degradations, avg response time) compare with the previous period of equal
+  length. Applications are one compact line (`unknown` only when non-zero). The
+  "Errors" block lists 4xx/5xx and degradation reasons from raw rows (14-day
+  retention) and says when the period starts before them. Recent requests show
+  the degradation reason and can be filtered by application. Period helpers:
+  `src/utils/statsPeriod.ts` (tests in `tests/`, run `node --test tests/*.test.mjs`).
 - `src/Components/ContentReports.vue` — read-only list of Lampada AI-content reports
 
 ## Auth

@@ -214,98 +214,79 @@ export interface ModelsUpdateResponse {
   updated_languages: number
 }
 
-// API Stats types. unique_ips counts distinct keyed IP pseudonyms, not people.
-export interface StatsTotals {
-  total_requests: number
-  total_errors: number
-  avg_response_time_ms: number
-  unique_ips: number
-}
-
-export interface StatsToday {
-  requests: number
-  unique_ips: number
-  avg_response_time_ms: number
-  errors: number
-}
-
-export interface StatsDailyRow {
-  date: string
-  requests: number
-  unique_ips: number
-  avg_response_time_ms: number
-  errors: number
-}
-
-export interface StatsEndpointRow {
-  endpoint: string
-  requests: number
-  unique_ips: number
-  avg_response_time_ms: number
-  errors: number
-}
-
-export interface StatsPreviousTotals {
-  total_requests: number
-  total_errors: number
-  avg_response_time_ms: number
-  // null when the raw table no longer covers the previous period (rows are purged after 14 days)
-  unique_ips: number | null
-}
-
-export type StatsGroupKey = 'scripture' | 'ai' | 'other'
-
-export interface StatsGroupMetrics {
-  requests: number
-  errors: number
-  avg_response_time_ms: number
-}
-
-export type StatsGroups = Record<StatsGroupKey, StatsGroupMetrics>
-
-export interface StatsDailyGroupRow {
-  date: string
-  grp: StatsGroupKey
-  requests: number
-}
-
-export interface StatsSlowEndpointRow {
-  endpoint: string
-  requests: number
-  avg_response_time_ms: number
-  max_response_time_ms: number
-}
-
-export interface StatsSummaryResponse {
-  period_days: number
-  totals: StatsTotals
-  previous_totals: StatsPreviousTotals
-  today: StatsToday
-  groups: StatsGroups
-  applications: StatsApplicationMetrics[]
-  daily: StatsDailyRow[]
-  daily_groups: StatsDailyGroupRow[]
-  top_endpoints: StatsEndpointRow[]
-  slow_endpoints: StatsSlowEndpointRow[]
-}
-
+// API Stats types. unique_clients counts distinct keyed IP pseudonyms, not people.
 export type StatsApplicationKey = 'bible-garden' | 'lampada' | 'ops' | 'unknown'
+
+export type StatsPeriodInfo =
+  | { mode: 'hours'; hours: number; bucket: 'hour' }
+  | { mode: 'dates'; date_from: string; date_to: string; bucket: 'day' }
+
+export interface StatsTotals {
+  requests: number
+  unique_clients: number
+  server_errors: number
+  client_errors: number
+  degraded: number
+  avg_response_time_ms: number
+}
+
+// null where the previous period is not known (raw rows purged, counters added later).
+export type StatsPreviousTotals = { [K in keyof StatsTotals]: number | null }
+
+export interface StatsCoverage {
+  // First day with daily server-error / degradation counters; null when none exist yet.
+  server_errors_since: string | null
+  degraded_since: string | null
+}
 
 export interface StatsApplicationMetrics {
   application: StatsApplicationKey
   requests: number
-  errors: number
+  server_errors: number
+  degraded: number
   avg_response_time_ms: number
 }
 
-type NewStatsSummaryFields = 'previous_totals' | 'groups' | 'applications' | 'daily_groups' | 'slow_endpoints'
+export interface StatsSeriesRow {
+  bucket_start: string
+  requests: number
+  unique_clients: number
+  server_errors: number
+  degraded: number
+  avg_response_time_ms: number
+  scripture_requests: number
+  ai_requests: number
+}
 
-export type StatsSummaryWireResponse = Omit<StatsSummaryResponse, NewStatsSummaryFields>
-  & Partial<Pick<StatsSummaryResponse, NewStatsSummaryFields>>
+export interface StatsSummaryResponse {
+  period: StatsPeriodInfo
+  totals: StatsTotals
+  previous: StatsPreviousTotals
+  coverage: StatsCoverage
+  applications: StatsApplicationMetrics[]
+  series: StatsSeriesRow[]
+}
 
-export interface StatsSummaryParams {
-  top_group?: StatsGroupKey
-  top_endpoint?: string
+export interface StatsErrorRow {
+  status_code: number
+  method: string
+  endpoint: string
+  count: number
+  last_seen: string
+}
+
+export interface StatsDegradationRow {
+  reason: string
+  endpoint: string
+  count: number
+  last_seen: string
+}
+
+export interface StatsErrorsResponse {
+  raw_available_from: string | null
+  partial: boolean
+  errors: StatsErrorRow[]
+  degradations: StatsDegradationRow[]
 }
 
 export interface RecentRequestRow {
@@ -314,6 +295,7 @@ export interface RecentRequestRow {
   application: StatsApplicationKey
   method: string
   status_code: number
+  degraded_reason: string | null
   response_time_ms: number
   client_pseudonym: string // First 40 hex characters of the keyed address HMAC.
   user_agent: string | null

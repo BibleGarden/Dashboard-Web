@@ -23,8 +23,8 @@ import type {
   LanguageResponse,
   ModelType,
   ModelsUpdateResponse,
-  StatsSummaryWireResponse,
-  StatsSummaryParams,
+  StatsSummaryResponse,
+  StatsErrorsResponse,
   RecentRequestsResponse,
   RecentRequestParams,
   ContentReportListParams,
@@ -34,6 +34,7 @@ import type {
 } from '../types/api'
 import { authService } from './auth'
 import { API_CONFIG, isPublicEndpoint, isAdminEndpoint, requireApiKey } from '../config/api'
+import type { StatsPeriodParams } from '../utils/statsPeriod'
 
 // Exported to allow creating multiple API instances (e.g., admin API and alignment API)
 export class ApiService {
@@ -280,8 +281,13 @@ export class ApiService {
   }
 
   // Stats endpoints
-  async getStatsSummary(days: number = 30, filters: StatsSummaryParams = {}): Promise<StatsSummaryWireResponse> {
-    const response = await this.api.get<StatsSummaryWireResponse>('/stats/summary', { params: { days, ...filters } })
+  async getStatsSummary(period: StatsPeriodParams): Promise<StatsSummaryResponse> {
+    const response = await this.api.get<StatsSummaryResponse>('/stats/summary', { params: period })
+    return response.data
+  }
+
+  async getStatsErrors(period: StatsPeriodParams): Promise<StatsErrorsResponse> {
+    const response = await this.api.get<StatsErrorsResponse>('/stats/errors', { params: period })
     return response.data
   }
 
